@@ -6,9 +6,10 @@ import { getComponentDimensions } from '@/lib/canvas-utils';
 interface UseComponentDragProps {
   circuit: Circuit;
   viewTransform: { x: number; y: number; scale: number };
-  toWorldSpace: (coords: { x: number; y: number }) => { x: number; y: number };
-  onUpdateComponentPosition: (id: string, position: { x: number; y: number }) => void;
+  toWorldSpace: (coords: { x: number; y: number; }) => { x: number; y: number; };
+  onUpdateComponentPosition: (id: string, position: { x: number; y: number; }) => void;
   moveMode: boolean;
+  wiringMode: boolean;
   onSelectComponent: (id: string | null) => void;
   log: (message: string, category?: LogCategory) => void;
 }
@@ -19,6 +20,7 @@ export function useComponentDrag({
   toWorldSpace,
   onUpdateComponentPosition,
   moveMode,
+  wiringMode,
   onSelectComponent,
   log,
 }: UseComponentDragProps) {
@@ -55,24 +57,23 @@ export function useComponentDrag({
     };
 
     log(`ComponentMouseDown: Start dragging component ${componentId} with offset {x:${offset.x.toFixed(2)}, y:${offset.y.toFixed(2)}}`, 'drag');
-    setDragging({ id: componentId, offset });
 
     const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
-        if (animationFrame.current) {
-            cancelAnimationFrame(animationFrame.current);
-        }
-        animationFrame.current = requestAnimationFrame(() => {
-            setDragging(d => {
-                if (!d) return null;
-                const newWorldPos = toWorldSpace({ x: moveEvent.clientX, y: moveEvent.clientY });
-                const newX = newWorldPos.x - d.offset.x;
-                const newY = newWorldPos.y - d.offset.y;
-                dragPositions.current[d.id] = { x: newX, y: newY };
-                log(`DragMove: New live position for ${d.id}: {x:${newX.toFixed(2)}, y:${newY.toFixed(2)}}`, 'drag');
-                // Force re-render by creating a new object
-                return { ...d };
-            });
+      if (animationFrame.current) {
+          cancelAnimationFrame(animationFrame.current);
+      }
+      animationFrame.current = requestAnimationFrame(() => {
+        setDragging(d => {
+            if (!d) return null;
+            const newWorldPos = toWorldSpace({ x: moveEvent.clientX, y: moveEvent.clientY });
+            const newX = newWorldPos.x - d.offset.x;
+            const newY = newWorldPos.y - d.offset.y;
+            dragPositions.current[d.id] = { x: newX, y: newY };
+            log(`DragMove: New live position for ${d.id}: {x:${newX.toFixed(2)}, y:${newY.toFixed(2)}}`, 'drag');
+            // Force re-render by creating a new object
+            return { ...d };
         });
+      });
     };
 
     const handleMouseUp = (upEvent: globalThis.MouseEvent) => {
@@ -97,7 +98,8 @@ export function useComponentDrag({
 
       dragPositions.current = {};
     };
-
+    
+    setDragging({ id: componentId, offset });
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
