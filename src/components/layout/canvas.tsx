@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useRef, type MouseEvent, useCallback, useEffect, useState } from 'react';
+import { useRef, type MouseEvent, useCallback, useEffect } from 'react';
 import type { Circuit, ValidationResult, LogCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Waves, Scissors, Move } from 'lucide-react';
@@ -11,6 +11,7 @@ import { useComponentDrag } from '@/hooks/use-component-drag';
 import { useWiring } from '@/hooks/use-wiring';
 import { getPinAbsolutePosition, getComponentDimensions } from '@/lib/canvas-utils';
 import WiringRuler from '../canvas/wiring-ruler';
+import { useState } from 'react';
 
 interface CanvasProps {
   circuit: Circuit;
@@ -76,8 +77,6 @@ export default function Canvas({
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
     log(`CanvasMouseDown: button=${e.button}`, 'general');
     
-    if (deleteMode) return;
-    
     if (wiringMode && wireStart) {
       log(`CanvasMouseDown: In wiring mode with wire started. Calling handleCanvasClick.`, 'wiring');
       handleCanvasClick(e);
@@ -85,6 +84,7 @@ export default function Canvas({
     }
 
     const targetIsCanvas = e.target === canvasRef.current || e.target === e.currentTarget.firstElementChild;
+    log(`CanvasMouseDown: In wiring mode with wire started. Target is canvas or child: ${targetIsCanvas}`);
     if (!targetIsCanvas) {
         log(`CanvasMouseDown: Click was not on canvas background. Ignoring.`, 'general');
         return;
@@ -93,7 +93,7 @@ export default function Canvas({
     if (!isDragging() && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
       log(`CanvasMouseDown: Starting pan.`, 'pan');
       handlePanStart(e);
-    } else if (e.button === 0 && !moveMode) { 
+    } else if (e.button === 0 && !moveMode && !deleteMode && !wiringMode) { 
       log('CanvasMouseDown: Deselecting component.', 'general');
       onSelectComponent(null);
     }
