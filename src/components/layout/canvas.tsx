@@ -67,24 +67,24 @@ export default function Canvas({
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
     log(`CanvasMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`, 'general');
     
+    // If we are in wiring mode and a wire has been started, any click on the canvas should add a point.
     if (wiringMode && wireStart) {
-      log(`CanvasMouseDown: In wiring mode with wire started. Target is canvas or child: ${e.target === canvasRef.current || e.target === e.currentTarget.firstChild}`, 'wiring');
-      if (e.target === canvasRef.current || e.target === e.currentTarget.firstChild) {
-          log(`CanvasMouseDown: Calling handleCanvasClick.`, 'wiring');
-          handleCanvasClick(e);
-      }
+      log(`CanvasMouseDown: In wiring mode with wire started. Calling handleCanvasClick.`, 'wiring');
+      handleCanvasClick(e);
       return;
     }
 
+    // Stop if the click is on a component or pin, as those have their own handlers.
     if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) {
         log(`CanvasMouseDown: Click was not on canvas background. Ignoring.`, 'general');
         return;
     }
-
+    
+    // Handle panning
     if (!isDragging() && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
       log(`CanvasMouseDown: Starting pan.`, 'pan');
       handlePanStart(e);
-    } else if (e.button === 0) {
+    } else if (e.button === 0) { // Handle deselection
       log('CanvasMouseDown: Deselecting component.', 'general');
       onSelectComponent(null);
     }
