@@ -68,7 +68,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
       >
         <CompIcon 
           className={cn(
-            "w-full h-full text-foreground/80 transition-colors",
+            "w-full h-full text-foreground/80",
             isSelected ? "stroke-primary" : "stroke-current",
             validationStatus === 'fail' && "stroke-destructive",
             validationStatus === 'pass' && "stroke-green-500",
@@ -140,9 +140,26 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     if (linking) {
       setLinking(l => l && { ...l, to: { x: worldPos.x, y: worldPos.y } });
     }
-    if (dragging) {
-      const newX = worldPos.x - dragging.offset.x;
-      const newY = worldPos.y - dragging.offset.y;
+    if (dragging && canvasRef.current) {
+      const componentBeingDragged = circuit.components.find(c => c.id === dragging.id);
+      if (!componentBeingDragged) return;
+
+      const compDims = componentDimensions[componentBeingDragged.type];
+      const canvasRect = canvasRef.current.getBoundingClientRect();
+
+      // Calculate canvas boundaries in world space
+      const canvasLeft = -viewTransform.x / viewTransform.scale;
+      const canvasTop = -viewTransform.y / viewTransform.scale;
+      const canvasRight = (canvasRect.width - viewTransform.x) / viewTransform.scale;
+      const canvasBottom = (canvasRect.height - viewTransform.y) / viewTransform.scale;
+
+      let newX = worldPos.x - dragging.offset.x;
+      let newY = worldPos.y - dragging.offset.y;
+
+      // Constrain component within canvas boundaries
+      newX = Math.max(canvasLeft, Math.min(newX, canvasRight - compDims.width));
+      newY = Math.max(canvasTop, Math.min(newY, canvasBottom - compDims.height));
+
       currentPositions.current[dragging.id] = {x: newX, y: newY};
       // Force a re-render by creating a new object for the state
       setDragging(d => d ? {...d} : null); 
@@ -363,3 +380,5 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     </div>
   );
 }
+
+    
