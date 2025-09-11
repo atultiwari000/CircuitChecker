@@ -8,6 +8,7 @@ import ComponentLibrary from '@/components/layout/component-library';
 import Canvas from '@/components/layout/canvas';
 import PropertiesPanel from '@/components/layout/properties-panel';
 import AiSuggestionsDialog from '@/components/ai-suggestions-dialog';
+import DebuggerPanel from '@/components/layout/debugger-panel';
 import { Button } from '@/components/ui/button';
 import { Bot, PanelLeft, PanelRight } from 'lucide-react';
 
@@ -69,6 +70,13 @@ export default function Home() {
   const [showLibrary, setShowLibrary] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [wiringMode, setWiringMode] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  
+  const log = useCallback((message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugLogs(prev => [`[${timestamp}] ${message}`, ...prev]);
+  }, []);
+
 
   const handleValidate = () => {
     // This is a mock validation process.
@@ -141,9 +149,12 @@ export default function Home() {
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key.toLowerCase() === 'w' && !(event.target instanceof HTMLInputElement)) {
       event.preventDefault();
-      setWiringMode(prev => !prev);
+      setWiringMode(prev => {
+        log(`Wiring mode toggled to: ${!prev}`);
+        return !prev;
+      });
     }
-  }, []);
+  }, [log]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -182,6 +193,7 @@ export default function Home() {
             onUpdateComponentPosition={handleUpdateComponentPosition}
             wiringMode={wiringMode}
             setWiringMode={setWiringMode}
+            log={log}
           />
            <div className="absolute top-2 right-2 z-10">
               <Button variant="outline" size="icon" onClick={() => setShowProperties(p => !p)}>
@@ -210,6 +222,7 @@ export default function Home() {
           onClose={() => setShowAiDialog(false)}
         />
       )}
+      <DebuggerPanel logs={debugLogs} />
     </div>
   );
 }

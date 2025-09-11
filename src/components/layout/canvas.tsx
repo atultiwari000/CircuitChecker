@@ -18,6 +18,7 @@ interface CanvasProps {
   onAddComponent: (type: 'Resistor' | 'Capacitor' | 'IC', position: { x: number; y: number }) => void;
   onAddConnection: (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }, path: {x:number, y:number}[]) => void;
   onUpdateComponentPosition: (id: string, position: { x: number; y: number }) => void;
+  log: (message: string) => void;
 }
 
 const componentIcons = {
@@ -96,7 +97,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
 });
 CircuitComponentView.displayName = 'CircuitComponentView';
 
-export default function Canvas({ circuit, validationResults, selectedComponentId, onSelectComponent, onAddComponent, onAddConnection, onUpdateComponentPosition, wiringMode, setWiringMode }: CanvasProps) {
+export default function Canvas({ circuit, validationResults, selectedComponentId, onSelectComponent, onAddComponent, onAddConnection, onUpdateComponentPosition, wiringMode, setWiringMode, log }: CanvasProps) {
   const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef({ x: 0, y: 0 });
@@ -127,27 +128,37 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
   }, [viewTransform]);
 
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    log(`handleMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`);
     if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) return;
 
     if (wiringMode && wireStart && e.button === 0) {
+        log('handleMouseDown: In wiring mode, adding point to path');
         const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
         const lastPoint = wirePath[wirePath.length - 1];
         
         let newPoint: {x: number, y: number};
         if (nextSegmentDirection === 'horizontal') {
             newPoint = { x: worldPos.x, y: lastPoint.y };
+            log(`handleMouseDown: New horizontal point: { x: ${newPoint.x}, y: ${newPoint.y} }`);
             setNextSegmentDirection('vertical');
         } else {
             newPoint = { x: lastPoint.x, y: worldPos.y };
+            log(`handleMouseDown: New vertical point: { x: ${newPoint.x}, y: ${newPoint.y} }`);
             setNextSegmentDirection('horizontal');
         }
-        setWirePath(p => [...p, newPoint]);
+        setWirePath(p => {
+          const newPath = [...p, newPoint];
+          log(`handleMouseDown: Updated wirePath: ${JSON.stringify(newPath)}`);
+          return newPath;
+        });
   
     } else if (!wiringMode && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
+      log('handleMouseDown: Start panning');
       setIsPanning(true);
       panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
       e.currentTarget.style.cursor = 'grabbing';
     } else if (e.button === 0) {
+      log('handleMouseDown: Deselecting component');
       onSelectComponent(null);
     }
   };
@@ -186,11 +197,14 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
   };
 
   const handleMouseUp = (e: MouseEvent<HTMLDivElement>) => {
+    log('handleMouseUp');
     if (isPanning) {
+        log('handleMouseUp: End panning');
         setIsPanning(false);
         e.currentTarget.style.cursor = 'default';
     }
     if (dragging) {
+      log(`handleMouseUp: End dragging component ${dragging.id}`);
       if (dragPositions.current[dragging.id]) {
         onUpdateComponentPosition(dragging.id, dragPositions.current[dragging.id]);
       }
@@ -234,6 +248,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     const data = e.dataTransfer.getData('application/json');
     if (!data) return;
     const { type, name } = JSON.parse(data);
+    log(`handleDrop: Dropped item of type '${type}' with name '${name}'`);
     if (type === 'component') {
       const position = toWorldSpace({ x: e.clientX, y: e.clientY });
       const dims = componentDimensions[name as keyof typeof componentDimensions];
@@ -244,7 +259,11 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
   };
 
   const handleComponentMouseDown = (e: MouseEvent, componentId: string) => {
-    if(wiringMode || e.button !== 0 || (e.ctrlKey || e.metaKey)) return;
+    log(`handleComponentMouseDown: id=${componentId}`);
+    if(wiringMode || e.button !== 0 || (e.ctrlKey || e.metaKey)) {
+        log('handleComponentMouseDown: Ignoring due to wiring mode or mouse button.');
+        return;
+    }
     e.stopPropagation();
 
     onSelectComponent(componentId);
@@ -262,33 +281,37 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
         y: worldPos.y - component.position.y,
       },
     });
+    log(`handleComponentMouseDown: Start dragging component ${componentId}`);
   };
 
   const handlePinClick = useCallback((e: MouseEvent, componentId: string, pinId: string) => {
-    if (!wiringMode) return;
+    log(`handlePinClick: compId=${componentId}, pinId=${pinId}`);
+    if (!wiringMode) {
+      log('handlePinClick: Not in wiring mode, ignoring.');
+      return;
+    }
     e.stopPropagation();
 
     if (!wireStart) {
-      // Start a new wire
+      log('handlePinClick: Starting a new wire.');
       const component = circuit.components.find(c => c.id === componentId);
       if (!component) return;
       const startPos = getPinAbsolutePosition(component, pinId);
       setWireStart({ componentId, pinId });
       setWirePath([startPos]);
       setNextSegmentDirection('horizontal'); // Start with horizontal segment
+      log(`handlePinClick: wireStart set to { comp: ${componentId}, pin: ${pinId} }, path: ${JSON.stringify([startPos])}`);
     } else {
-      // End a wire
+      log('handlePinClick: Ending a wire.');
       if (wireStart.componentId !== componentId) {
         
         const endComponent = circuit.components.find(c => c.id === componentId);
         if(!endComponent) return;
         const endPinPos = getPinAbsolutePosition(endComponent, pinId);
 
-        // Add the last segment snapping to the end pin
         const finalPath = [...wirePath];
         const lastPoint = finalPath[finalPath.length - 1];
 
-        // Add intermediate point based on the next segment direction
         if (nextSegmentDirection === 'horizontal') {
             finalPath.push({ x: endPinPos.x, y: lastPoint.y });
         } else {
@@ -296,23 +319,25 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
         }
         
         finalPath.push(endPinPos);
+        log(`handlePinClick: Final path before cleaning: ${JSON.stringify(finalPath)}`);
 
-        // Remove redundant points
         const cleanedPath = finalPath.filter((p, i, arr) => {
           if (i === 0 || i === arr.length -1) return true;
           const prev = arr[i-1];
           const next = arr[i+1];
-          // if point is on the same line as prev and next, remove it
           return !( (p.x === prev.x && p.x === next.x) || (p.y === prev.y && p.y === next.y) );
         });
-
+        
+        log(`handlePinClick: Cleaned path: ${JSON.stringify(cleanedPath)}`);
         onAddConnection(wireStart, { componentId, pinId }, cleanedPath);
+      } else {
+        log('handlePinClick: Clicked on same component, cancelling wire.');
       }
-      // Reset for next wire
+      log('handlePinClick: Resetting wire state.');
       setWireStart(null);
       setWirePath([]);
     }
-  }, [wiringMode, wireStart, wirePath, circuit.components, onAddConnection, nextSegmentDirection]);
+  }, [wiringMode, wireStart, wirePath, circuit.components, onAddConnection, nextSegmentDirection, log]);
 
   const getComponentPosition = (id: string) => {
     if (dragging?.id === id && dragPositions.current[id]) {
@@ -325,17 +350,20 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
+            log('Keydown: Escape pressed');
             if (wireStart) {
+                log('Keydown: Cancelling current wire.');
                 setWireStart(null);
                 setWirePath([]);
             } else if (wiringMode) {
+                log('Keydown: Exiting wiring mode.');
                 setWiringMode(false);
             }
         }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [wireStart, wiringMode, setWiringMode]);
+  }, [wireStart, wiringMode, setWiringMode, log]);
 
 
   return (
@@ -476,7 +504,3 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     </div>
   );
 }
-
-    
-
-    
