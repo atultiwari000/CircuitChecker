@@ -23,6 +23,7 @@ export interface Connection {
   id: string;
   from: { componentId: string; pinId: string };
   to: { componentId: string; pinId: string };
+  path: { x: number, y: number }[];
 }
 
 export type ValidationStatus = 'pass' | 'fail' | 'unchecked';

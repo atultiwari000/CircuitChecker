@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import type { CircuitComponent, ValidationResult, Circuit, Connection, Pin } from '@/lib/types';
+import { useState, useEffect, useCallback } from 'react';
+import type { CircuitComponent, ValidationResult, Circuit, Connection } from '@/lib/types';
 import { initialCircuit } from '@/lib/data';
 import Header from '@/components/layout/header';
 import ComponentLibrary from '@/components/layout/component-library';
@@ -68,6 +68,7 @@ export default function Home() {
   const [showAiDialog, setShowAiDialog] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
+  const [wiringMode, setWiringMode] = useState(false);
 
   const handleValidate = () => {
     // This is a mock validation process.
@@ -111,6 +112,7 @@ export default function Home() {
       id: `conn-${Date.now()}`,
       from,
       to,
+      path: [],
     };
     setCircuit(prev => ({
       ...prev,
@@ -135,6 +137,20 @@ export default function Home() {
       ),
     }));
   }
+
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (event.key.toLowerCase() === 'w' && !(event.target instanceof HTMLInputElement)) {
+      event.preventDefault();
+      setWiringMode(prev => !prev);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleKeyDown]);
 
   const selectedComponent = circuit.components.find(c => c.id === selectedComponentId);
   const validationFailures = validationResults
@@ -164,6 +180,8 @@ export default function Home() {
             onAddComponent={handleAddComponent}
             onAddConnection={handleAddConnection}
             onUpdateComponentPosition={handleUpdateComponentPosition}
+            wiringMode={wiringMode}
+            setWiringMode={setWiringMode}
           />
            <div className="absolute top-2 right-2 z-10">
               <Button variant="outline" size="icon" onClick={() => setShowProperties(p => !p)}>
