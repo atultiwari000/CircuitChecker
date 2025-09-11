@@ -101,7 +101,10 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
 
   const [linking, setLinking] = useState<{ from: { componentId: string, pinId: string }, to: { x: number, y: number } } | null>(null);
   const [dragging, setDragging] = useState<{ id: string, offset: { x: number, y: number } } | null>(null);
-  const currentPositions = useRef<{[key:string]: {x: number, y: number}}>({});
+  
+  // A ref to hold the real-time positions of components during a drag operation.
+  // This avoids re-rendering the entire circuit state on every mouse move.
+  const dragPositions = useRef<{[key:string]: {x: number, y: number}}>({});
 
 
   const getValidationStatus = (id: string) => {
@@ -119,8 +122,9 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
   };
 
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+    // Check for middle mouse button or Ctrl+left-click for panning
     if (e.target === canvasRef.current || e.target === e.currentTarget.firstChild) {
-      if (e.button === 1 || (e.button === 0 && e.ctrlKey)) { // Middle mouse button or Ctrl+Click
+      if (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey))) {
         setIsPanning(true);
         panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
         e.currentTarget.style.cursor = 'grabbing';
@@ -136,10 +140,13 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       const y = e.clientY - panStart.current.y;
       setViewTransform(v => ({...v, x, y}));
     }
+
     const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
+
     if (linking) {
-      setLinking(l => l && { ...l, to: { x: worldPos.x, y: worldPos.y } });
+      setLinking(l => l && { ...l, to: worldPos });
     }
+
     if (dragging && canvasRef.current) {
       const componentBeingDragged = circuit.components.find(c => c.id === dragging.id);
       if (!componentBeingDragged) return;
@@ -147,7 +154,6 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       const compDims = componentDimensions[componentBeingDragged.type];
       const canvasRect = canvasRef.current.getBoundingClientRect();
 
-      // Calculate canvas boundaries in world space
       const canvasLeft = -viewTransform.x / viewTransform.scale;
       const canvasTop = -viewTransform.y / viewTransform.scale;
       const canvasRight = (canvasRect.width - viewTransform.x) / viewTransform.scale;
@@ -156,13 +162,14 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       let newX = worldPos.x - dragging.offset.x;
       let newY = worldPos.y - dragging.offset.y;
 
-      // Constrain component within canvas boundaries
       newX = Math.max(canvasLeft, Math.min(newX, canvasRight - compDims.width));
       newY = Math.max(canvasTop, Math.min(newY, canvasBottom - compDims.height));
 
-      currentPositions.current[dragging.id] = {x: newX, y: newY};
-      // Force a re-render by creating a new object for the state
-      setDragging(d => d ? {...d} : null); 
+      // Update the position in the ref
+      dragPositions.current[dragging.id] = { x: newX, y: newY };
+      
+      // Force a re-render by updating the dragging state object
+      setDragging(d => d ? { ...d } : null);
     }
   };
 
@@ -172,8 +179,12 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
         e.currentTarget.style.cursor = 'default';
     }
     if (dragging) {
-      onUpdateComponentPosition(dragging.id, currentPositions.current[dragging.id]);
+      // Finalize the position update in the main circuit state
+      if (dragPositions.current[dragging.id]) {
+        onUpdateComponentPosition(dragging.id, dragPositions.current[dragging.id]);
+      }
       setDragging(null);
+      dragPositions.current = {}; // Clear the temporary positions
     }
     if (linking) {
       setLinking(null);
@@ -226,20 +237,17 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
 
   const handleComponentMouseDown = (e: MouseEvent, componentId: string) => {
     e.stopPropagation();
-    if(e.button !== 0) return;
+    if(e.button !== 0 || (e.ctrlKey || e.metaKey)) return;
 
     onSelectComponent(componentId);
     const component = circuit.components.find(c => c.id === componentId);
     if (!component) return;
 
-    // Initialize currentPositions for all components if not already done
-    if(Object.keys(currentPositions.current).length === 0) {
-      circuit.components.forEach(c => {
-        currentPositions.current[c.id] = c.position;
-      });
-    }
-
     const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
+    
+    // Set initial drag position
+    dragPositions.current[componentId] = component.position;
+    
     setDragging({
       id: componentId,
       offset: {
@@ -264,24 +272,20 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     setLinking(null);
   }, [linking, onAddConnection]);
 
+  // Gets the real-time position of a component, either from the drag ref or from the main state
   const getComponentPosition = (id: string) => {
-    if (dragging?.id === id) {
-      return currentPositions.current[id];
+    if (dragging?.id === id && dragPositions.current[id]) {
+      return dragPositions.current[id];
     }
     const component = circuit.components.find(c => c.id === id);
-    if (component) {
-      // Keep track of original positions
-      currentPositions.current[id] = component.position;
-      return component.position;
-    }
-    return { x: 0, y: 0 };
+    return component ? component.position : { x: 0, y: 0 };
   }
 
 
   return (
     <div 
       ref={canvasRef}
-      className="w-full h-full overflow-hidden relative select-none bg-grid-slate-100 dark:bg-grid-slate-900"
+      className="w-full h-full overflow-hidden relative bg-grid-slate-100 dark:bg-grid-slate-900"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -289,20 +293,21 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       onWheel={handleWheel}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      style={{ cursor: isPanning ? 'grabbing' : 'default' }}
+      style={{ cursor: isPanning ? 'grabbing' : 'default', userSelect: 'none' }}
     >
       <div 
         className="relative w-full h-full"
         style={{ transform: `translate(${viewTransform.x}px, ${viewTransform.y}px) scale(${viewTransform.scale})`, transformOrigin: 'top left' }}
       >
         {circuit.components.map((comp) => {
+          // Use the dynamic position for rendering
           const position = getComponentPosition(comp.id);
-          const componentWithDragPos = {...comp, position };
+          const componentWithLivePos = { ...comp, position };
 
           return (
             <CircuitComponentView
                 key={comp.id}
-                component={componentWithDragPos}
+                component={componentWithLivePos}
                 isSelected={selectedComponentId === comp.id}
                 validationStatus={getValidationStatus(comp.id)}
                 onSelect={onSelectComponent}
@@ -325,6 +330,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
 
               if (!fromComponent || !toComponent) return null;
               
+              // Use the dynamic position for rendering connections too
               const fromPosition = getComponentPosition(fromComponent.id);
               const toPosition = getComponentPosition(toComponent.id);
 
@@ -340,7 +346,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
                   <path
                     d={pathData}
                     className={cn(
-                      "fill-none stroke-2 transition-all",
+                      "fill-none stroke-2",
                       status === 'unchecked' && "stroke-muted-foreground/60",
                       status === 'pass' && "stroke-green-500",
                       status === 'fail' && "stroke-destructive",
@@ -380,5 +386,3 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     </div>
   );
 }
-
-    
