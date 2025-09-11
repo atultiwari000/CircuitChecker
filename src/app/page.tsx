@@ -26,7 +26,7 @@ export default function Home() {
       { targetId: 'conn-4', status: 'fail', message: 'Incorrect logic family connection between IC and Resistor.' },
       { targetId: 'ic-1', status: 'fail' },
       { targetId: 'r-1', status: 'fail' },
-      { targetId: 'c-1', status: 'pass' },
+      { targetId: 'c-1', 'status': 'pass' },
     ];
     setValidationResults(newValidationResults);
   };
@@ -49,7 +49,7 @@ export default function Home() {
       />
       <div className="flex flex-1 border-t overflow-hidden">
         <ComponentLibrary />
-        <main className="flex-1 relative bg-grid-slate-100 dark:bg-grid-slate-900">
+        <main className="flex-1 relative">
           <Canvas
             circuit={circuit}
             validationResults={validationResults}
@@ -77,4 +77,3 @@ export default function Home() {
     </div>
   );
 }
-

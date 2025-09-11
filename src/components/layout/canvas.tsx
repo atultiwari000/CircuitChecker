@@ -50,7 +50,10 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
         "absolute cursor-pointer transition-all duration-200 group",
         isSelected && "scale-105 z-10"
       )}
-      onClick={() => onSelect(component.id)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(component.id)
+      }}
     >
       <div
         className={cn(
@@ -75,7 +78,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
 CircuitComponentView.displayName = 'CircuitComponentView';
 
 export default function Canvas({ circuit, validationResults, selectedComponentId, onSelectComponent }: CanvasProps) {
-  const [viewTransform, setViewTransform] = useState({ x: 0, y: 0 });
+  const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -97,7 +100,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     if (isPanning) {
       const x = e.clientX - panStart.current.x;
       const y = e.clientY - panStart.current.y;
-      setViewTransform({ x, y });
+      setViewTransform(v => ({...v, x, y}));
     }
   };
 
@@ -106,18 +109,47 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     e.currentTarget.style.cursor = 'default';
   };
 
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!canvasRef.current) return;
+    const { clientX, clientY, deltaY } = e;
+    const rect = canvasRef.current.getBoundingClientRect();
+    
+    // Position of the mouse relative to the canvas
+    const mouseX = clientX - rect.left;
+    const mouseY = clientY - rect.top;
+
+    const scaleFactor = 1.1;
+    const newScale = deltaY < 0 ? viewTransform.scale * scaleFactor : viewTransform.scale / scaleFactor;
+    const clampedScale = Math.max(0.2, Math.min(newScale, 3));
+
+    // Position of the mouse in the scaled view, before zoom
+    const worldX = (mouseX - viewTransform.x) / viewTransform.scale;
+    const worldY = (mouseY - viewTransform.y) / viewTransform.scale;
+
+    // The new top-left of the view
+    const newX = mouseX - worldX * clampedScale;
+    const newY = mouseY - worldY * clampedScale;
+
+    setViewTransform({
+        x: newX,
+        y: newY,
+        scale: clampedScale,
+    });
+  }
+
   return (
     <div 
       ref={canvasRef}
-      className="w-full h-full overflow-hidden relative select-none"
+      className="w-full h-full overflow-hidden relative select-none bg-grid-slate-100 dark:bg-grid-slate-900"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
     >
       <div 
         className="relative w-full h-full"
-        style={{ transform: `translate(${viewTransform.x}px, ${viewTransform.y}px)` }}
+        style={{ transform: `translate(${viewTransform.x}px, ${viewTransform.y}px) scale(${viewTransform.scale})`, transformOrigin: 'top left' }}
       >
         {circuit.components.map((comp) => (
           <CircuitComponentView
@@ -128,45 +160,47 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
               onSelect={onSelectComponent}
           />
         ))}
-        <svg className="absolute top-0 left-0 w-full h-full pointer-events-none">
+        <svg className="absolute top-0 left-0 pointer-events-none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
           <defs>
               <marker id="marker-circle" markerWidth="4" markerHeight="4" refX="2" refY="2">
                   <circle cx="2" cy="2" r="1.5" className="fill-muted-foreground" />
               </marker>
           </defs>
-          {circuit.connections.map(conn => {
-            const fromComponent = circuit.components.find(c => c.id === conn.from.componentId);
-            const toComponent = circuit.components.find(c => c.id === conn.to.componentId);
+          <g>
+            {circuit.connections.map(conn => {
+              const fromComponent = circuit.components.find(c => c.id === conn.from.componentId);
+              const toComponent = circuit.components.find(c => c.id === conn.to.componentId);
 
-            if (!fromComponent || !toComponent) return null;
+              if (!fromComponent || !toComponent) return null;
 
-            const p1 = getPinAbsolutePosition(fromComponent, conn.from.pinId);
-            const p2 = getPinAbsolutePosition(toComponent, conn.to.pinId);
-            const status = getValidationStatus(conn.id);
+              const p1 = getPinAbsolutePosition(fromComponent, conn.from.pinId);
+              const p2 = getPinAbsolutePosition(toComponent, conn.to.pinId);
+              const status = getValidationStatus(conn.id);
 
-            const midX = (p1.x + p2.x) / 2;
-            const pathData = `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
+              const midX = (p1.x + p2.x) / 2;
+              const pathData = `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
 
-            return (
-              <g key={conn.id}>
-                <path
-                  d={pathData}
-                  className={cn(
-                    "fill-none stroke-2 transition-all",
-                    status === 'unchecked' && "stroke-muted-foreground/60",
-                    status === 'pass' && "stroke-green-500",
-                    status === 'fail' && "stroke-destructive",
-                  )}
-                  markerStart="url(#marker-circle)"
-                  markerEnd="url(#marker-circle)"
-                />
-                 <path
-                  d={pathData}
-                  className="fill-none stroke-[12] stroke-transparent"
-                />
-              </g>
-            );
-          })}
+              return (
+                <g key={conn.id}>
+                  <path
+                    d={pathData}
+                    className={cn(
+                      "fill-none stroke-2 transition-all",
+                      status === 'unchecked' && "stroke-muted-foreground/60",
+                      status === 'pass' && "stroke-green-500",
+                      status === 'fail' && "stroke-destructive",
+                    )}
+                    markerStart="url(#marker-circle)"
+                    markerEnd="url(#marker-circle)"
+                  />
+                   <path
+                    d={pathData}
+                    className="fill-none stroke-[12] stroke-transparent"
+                  />
+                </g>
+              );
+            })}
+          </g>
         </svg>
       </div>
     </div>
