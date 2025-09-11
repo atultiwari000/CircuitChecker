@@ -8,11 +8,11 @@ export const ResistorIcon: IconProps = (props) => (
     viewBox="0 0 100 40"
     fill="none"
     stroke="currentColor"
-    strokeWidth="4"
+    strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M5 20h15l10-15 10 30 10-30 10 30 10-15h15" />
+    <path d="M5 20h15l10-10 10 20 10-20 10 20 10-10h15" />
   </svg>
 );
 
@@ -22,7 +22,7 @@ export const CapacitorIcon: IconProps = (props) => (
     viewBox="0 0 100 40"
     fill="none"
     stroke="currentColor"
-    strokeWidth="4"
+    strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
   >
@@ -34,16 +34,15 @@ export const CapacitorIcon: IconProps = (props) => (
 export const IcIcon: IconProps = (props) => (
     <svg
       {...props}
-      viewBox="0 0 100 60"
+      viewBox="0 0 120 90"
       fill="none"
       stroke="currentColor"
-      strokeWidth="4"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <rect x="5" y="5" width="90" height="50" rx="5" />
-      <path d="M30 5V0M50 5V0M70 5V0" />
-      <path d="M30 55v5M50 55v5M70 55v5" />
+      <rect x="5" y="5" width="110" height="80" rx="5" fill="hsl(var(--card))" />
+      <circle cx="20" cy="15" r="2" fill="hsl(var(--muted-foreground))" />
     </svg>
   );
   

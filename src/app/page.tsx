@@ -9,8 +9,7 @@ import Canvas from '@/components/layout/canvas';
 import PropertiesPanel from '@/components/layout/properties-panel';
 import AiSuggestionsDialog from '@/components/ai-suggestions-dialog';
 import { Button } from '@/components/ui/button';
-import { Bot } from 'lucide-react';
-import { ResistorIcon, CapacitorIcon, IcIcon } from '@/components/icons';
+import { Bot, PanelLeft, PanelRight } from 'lucide-react';
 
 const componentDefaults = {
   Resistor: {
@@ -67,6 +66,8 @@ export default function Home() {
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(initialCircuit.components[0]?.id || null);
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   const [showAiDialog, setShowAiDialog] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [showProperties, setShowProperties] = useState(false);
 
   const handleValidate = () => {
     // This is a mock validation process.
@@ -76,7 +77,7 @@ export default function Home() {
       { targetId: 'conn-3', status: 'pass' },
       { targetId: 'conn-4', status: 'fail', message: 'Incorrect logic family connection between IC and Resistor.' },
       { targetId: 'ic-1', status: 'fail' },
-      { targetId: 'r-1', status: 'fail' },
+      { targetId: 'r-1', status: 'pass' },
       { targetId: 'c-1', 'status': 'pass' },
     ];
     setValidationResults(newValidationResults);
@@ -148,8 +149,13 @@ export default function Home() {
         hasValidationResults={validationResults.length > 0}
       />
       <div className="flex flex-1 border-t overflow-hidden">
-        <ComponentLibrary />
+        {showLibrary && <ComponentLibrary />}
         <main className="flex-1 relative">
+           <div className="absolute top-2 left-2 z-10">
+              <Button variant="outline" size="icon" onClick={() => setShowLibrary(p => !p)}>
+                  <PanelLeft />
+              </Button>
+           </div>
           <Canvas
             circuit={circuit}
             validationResults={validationResults}
@@ -159,12 +165,17 @@ export default function Home() {
             onAddConnection={handleAddConnection}
             onUpdateComponentPosition={handleUpdateComponentPosition}
           />
+           <div className="absolute top-2 right-2 z-10">
+              <Button variant="outline" size="icon" onClick={() => setShowProperties(p => !p)}>
+                  <PanelRight />
+              </Button>
+           </div>
         </main>
-        <PropertiesPanel 
+        {showProperties && <PropertiesPanel 
           key={selectedComponentId}
           component={selectedComponent}
           onUpdateProperties={handleUpdateComponentProperties}
-        />
+        />}
       </div>
       {validationFailures.length > 0 && (
         <div className="fixed bottom-6 right-6 z-50">

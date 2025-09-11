@@ -51,7 +51,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
       }}
       className={cn(
         "absolute cursor-pointer transition-all duration-200 group",
-        isSelected && "scale-105 z-10"
+        isSelected && "z-10"
       )}
       onClick={(e) => {
         e.stopPropagation();
@@ -61,13 +61,18 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
     >
       <div
         className={cn(
-          "relative w-full h-full rounded-md border-2 bg-card/80 backdrop-blur-sm shadow transition-colors select-none",
-          isSelected ? "border-primary" : "border-transparent",
-          validationStatus === 'fail' && "border-destructive animate-pulse",
-          validationStatus === 'pass' && "border-green-500"
+          "relative w-full h-full select-none",
+          validationStatus === 'fail' && "animate-pulse"
         )}
       >
-        <CompIcon className="w-full h-full p-2 text-foreground/80" />
+        <CompIcon 
+          className={cn(
+            "w-full h-full text-foreground/80 transition-all",
+            isSelected ? "stroke-primary" : "stroke-current",
+            validationStatus === 'fail' && "stroke-destructive",
+            validationStatus === 'pass' && "stroke-green-500",
+          )}
+        />
         <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs font-semibold">{component.name}</span>
         
         {component.pins.map(pin => (
