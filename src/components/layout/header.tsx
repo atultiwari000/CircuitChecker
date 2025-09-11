@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { CircuitBoard, Sparkles, RotateCcw, Scissors } from 'lucide-react';
+import { CircuitBoard, Sparkles, RotateCcw, Scissors, Move } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface HeaderProps {
@@ -11,9 +11,11 @@ interface HeaderProps {
   hasValidationResults: boolean;
   deleteMode: boolean;
   onToggleDeleteMode: () => void;
+  moveMode: boolean;
+  onToggleMoveMode: () => void;
 }
 
-export default function Header({ onValidate, onReset, hasValidationResults, deleteMode, onToggleDeleteMode }: HeaderProps) {
+export default function Header({ onValidate, onReset, hasValidationResults, deleteMode, onToggleDeleteMode, moveMode, onToggleMoveMode }: HeaderProps) {
   return (
     <header className="flex items-center h-16 px-4 shrink-0 border-b bg-card">
       <div className="flex items-center gap-2">
@@ -21,6 +23,16 @@ export default function Header({ onValidate, onReset, hasValidationResults, dele
         <h1 className="text-xl font-bold tracking-tighter">CircuitCheck</h1>
       </div>
       <div className="ml-auto flex items-center gap-2">
+        <Button 
+          variant={moveMode ? "secondary" : "outline"} 
+          size="icon" 
+          onClick={onToggleMoveMode}
+          aria-pressed={moveMode}
+          className={cn(moveMode && "ring-2 ring-primary")}
+        >
+            <Move className="h-4 w-4" />
+            <span className="sr-only">Toggle Move Mode</span>
+        </Button>
         <Button 
           variant={deleteMode ? "secondary" : "outline"} 
           size="icon" 

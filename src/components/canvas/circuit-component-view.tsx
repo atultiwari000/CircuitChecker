@@ -16,17 +16,19 @@ interface CircuitComponentViewProps {
     isSelected: boolean;
     validationStatus: 'pass' | 'fail' | 'unchecked';
     deleteMode: boolean;
+    moveMode: boolean;
     onSelect: (id: string) => void;
     onPinClick: (e: MouseEvent, componentId: string, pinId: string) => void;
     onComponentMouseDown: (e: MouseEvent, componentId: string) => void;
 }
 
-const CircuitComponentView = memo(({ component, isSelected, validationStatus, deleteMode, onSelect, onPinClick, onComponentMouseDown }: CircuitComponentViewProps) => {
+const CircuitComponentView = memo(({ component, isSelected, validationStatus, deleteMode, moveMode, onSelect, onPinClick, onComponentMouseDown }: CircuitComponentViewProps) => {
   const CompIcon = componentIcons[component.type];
   const dims = getComponentDimensions(component.type);
 
   const getCursor = () => {
     if (deleteMode) return 'pointer';
+    if (moveMode) return 'grab';
     if (onComponentMouseDown) return 'pointer';
     return 'default';
   }
@@ -45,10 +47,6 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, de
         isSelected && "z-10",
         deleteMode && "hover:opacity-70 transition-opacity",
       )}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(component.id);
-      }}
       onMouseDown={(e) => {
         // Stop propagation to prevent canvas-level events like deselection or panning
         e.stopPropagation();
@@ -57,6 +55,10 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, de
       }}
     >
       <div
+        onClick={(e) => {
+            e.stopPropagation();
+            onSelect(component.id);
+        }}
         className={cn(
           "relative w-full h-full select-none",
           validationStatus === 'fail' && "animate-pulse"

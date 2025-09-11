@@ -10,6 +10,7 @@ export function useCircuit() {
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   const [wiringMode, setWiringMode] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
+  const [moveMode, setMoveMode] = useState(false);
   const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
 
   const log = useCallback((message: string, category: LogCategory = 'general') => {
@@ -23,12 +24,25 @@ export function useCircuit() {
   }, []);
   
   useEffect(() => {
-    if (deleteMode) setWiringMode(false);
+    if (deleteMode) {
+        setWiringMode(false);
+        setMoveMode(false);
+    }
   }, [deleteMode]);
 
   useEffect(() => {
-    if (wiringMode) setDeleteMode(false);
+    if (wiringMode) {
+        setDeleteMode(false);
+        setMoveMode(false);
+    }
   }, [wiringMode]);
+
+  useEffect(() => {
+    if (moveMode) {
+        setDeleteMode(false);
+        setWiringMode(false);
+    }
+  }, [moveMode]);
 
   const handleValidate = () => {
     log('handleValidate: Triggered', 'general');
@@ -127,23 +141,29 @@ export function useCircuit() {
 
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (event.key.toLowerCase() === 'w' && !(event.target instanceof HTMLInputElement)) {
-      event.preventDefault();
-      setWiringMode(prev => {
-        const newState = !prev;
-        log(`Toggling wiring mode to: ${newState}`, 'wiring');
-        return newState;
-      });
+    if (event.target instanceof HTMLInputElement) return;
+
+    switch (event.key.toLowerCase()) {
+      case 'w':
+        event.preventDefault();
+        setWiringMode(prev => !prev);
+        log(`Toggling wiring mode to: ${!wiringMode}`, 'wiring');
+        break;
+      case 'd':
+        event.preventDefault();
+        setDeleteMode(prev => !prev);
+        break;
+      case 'm':
+        event.preventDefault();
+        setMoveMode(prev => !prev);
+        break;
+      case 'escape':
+        setWiringMode(false);
+        setDeleteMode(false);
+        setMoveMode(false);
+        break;
     }
-     if (event.key.toLowerCase() === 'd' && !(event.target instanceof HTMLInputElement)) {
-      event.preventDefault();
-      setDeleteMode(prev => !prev);
-    }
-    if (event.key === 'Escape') {
-      setWiringMode(false);
-      setDeleteMode(false);
-    }
-  }, [log]);
+  }, [log, wiringMode]);
 
   // Using useEffect in the hook to manage global listeners
   useEffect(() => {
@@ -164,6 +184,8 @@ export function useCircuit() {
     setWiringMode,
     deleteMode,
     setDeleteMode,
+    moveMode,
+    setMoveMode,
     debugLogs,
     setDebugLogs,
     log,

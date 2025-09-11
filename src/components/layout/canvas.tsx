@@ -4,7 +4,7 @@
 import { useRef, type MouseEvent, useCallback, useEffect, useState } from 'react';
 import type { Circuit, ValidationResult, LogCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Waves, Scissors } from 'lucide-react';
+import { Waves, Scissors, Move } from 'lucide-react';
 import CircuitComponentView from '@/components/canvas/circuit-component-view';
 import { usePanAndZoom } from '@/hooks/use-pan-and-zoom';
 import { useComponentDrag } from '@/hooks/use-component-drag';
@@ -19,6 +19,7 @@ interface CanvasProps {
   wiringMode: boolean;
   setWiringMode: (mode: boolean) => void;
   deleteMode: boolean;
+  moveMode: boolean;
   onSelectComponent: (id: string | null) => void;
   onAddComponent: (type: 'Resistor' | 'Capacitor' | 'IC', position: { x: number; y: number }) => void;
   onAddConnection: (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }, path: {x:number, y:number}[]) => void;
@@ -41,19 +42,20 @@ export default function Canvas({
   wiringMode, 
   setWiringMode,
   deleteMode,
+  moveMode,
   log 
 }: CanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [hoveredConnection, setHoveredConnection] = useState<string | null>(null);
 
-  const { viewTransform, isPanning, toWorldSpace, handlePanStart, handlePanMove, handlePanEnd, handleWheel } = usePanAndZoom(canvasRef, log, wiringMode || deleteMode);
+  const { viewTransform, isPanning, toWorldSpace, handlePanStart, handlePanMove, handlePanEnd, handleWheel } = usePanAndZoom(canvasRef, log, wiringMode || deleteMode || moveMode);
   
   const { dragging, dragPositions, handleComponentMouseDown, isDragging } = useComponentDrag({
     circuit,
     viewTransform,
     toWorldSpace,
     onUpdateComponentPosition,
-    wiringMode: wiringMode || deleteMode,
+    moveMode,
     onSelectComponent,
     log
   });
@@ -75,7 +77,7 @@ export default function Canvas({
     log(`CanvasMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`, 'general');
     
     if (deleteMode) return;
-
+    
     if (wiringMode && wireStart) {
       log(`CanvasMouseDown: In wiring mode with wire started. Calling handleCanvasClick.`, 'wiring');
       handleCanvasClick(e);
@@ -90,7 +92,7 @@ export default function Canvas({
     if (!isDragging() && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
       log(`CanvasMouseDown: Starting pan.`, 'pan');
       handlePanStart(e);
-    } else if (e.button === 0) { 
+    } else if (e.button === 0 && !moveMode) { 
       log('CanvasMouseDown: Deselecting component.', 'general');
       onSelectComponent(null);
     }
@@ -151,8 +153,18 @@ export default function Canvas({
     if (isPanning) return 'grabbing';
     if (wiringMode) return 'crosshair';
     if (deleteMode) return 'url(/scissors.svg) 12 12, auto';
+    if (moveMode) return 'grab';
     return 'default';
   }
+  
+  const getModeInfo = () => {
+    if (wiringMode) return { icon: Waves, text: 'WIRING MODE' };
+    if (deleteMode) return { icon: Scissors, text: 'DELETE MODE' };
+    if (moveMode) return { icon: Move, text: 'MOVE MODE' };
+    return null;
+  }
+
+  const modeInfo = getModeInfo();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -185,10 +197,10 @@ export default function Canvas({
       onDrop={handleDrop}
       style={{ cursor: getCursor(), userSelect: 'none' }}
     >
-      {(wiringMode || deleteMode) && (
+      {modeInfo && (
           <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 bg-primary/80 text-primary-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-2">
-            {wiringMode ? <Waves className="h-4 w-4" /> : <Scissors className="h-4 w-4" />}
-            {wiringMode ? 'WIRING MODE' : 'DELETE MODE'}
+            <modeInfo.icon className="h-4 w-4" />
+            {modeInfo.text}
             <span className="text-primary-foreground/70 font-mono">(ESC to exit)</span>
           </div>
       )}
@@ -211,6 +223,7 @@ export default function Canvas({
                 onPinClick={handlePinClick}
                 onComponentMouseDown={handleComponentMouseDown}
                 deleteMode={deleteMode}
+                moveMode={moveMode}
             />
           )
         })}

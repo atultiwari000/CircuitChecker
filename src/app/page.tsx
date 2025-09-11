@@ -29,6 +29,8 @@ export default function Home() {
     setWiringMode,
     deleteMode,
     setDeleteMode,
+    moveMode,
+    setMoveMode,
     log,
     debugLogs,
   } = useCircuit();
@@ -50,6 +52,8 @@ export default function Home() {
         hasValidationResults={validationResults.length > 0}
         deleteMode={deleteMode}
         onToggleDeleteMode={() => setDeleteMode(prev => !prev)}
+        moveMode={moveMode}
+        onToggleMoveMode={() => setMoveMode(prev => !prev)}
       />
       <div className="flex flex-1 border-t overflow-hidden">
         {showLibrary && <ComponentLibrary />}
@@ -72,6 +76,7 @@ export default function Home() {
             wiringMode={wiringMode}
             setWiringMode={setWiringMode}
             deleteMode={deleteMode}
+            moveMode={moveMode}
             log={log}
           />
            <div className="absolute top-2 right-2 z-10">
