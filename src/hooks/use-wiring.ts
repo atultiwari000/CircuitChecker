@@ -112,7 +112,6 @@ export function useWiring({
   };
 
   const handleWiringMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!wireStart) return;
     const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
     setCursorPos(worldPos);
   };
