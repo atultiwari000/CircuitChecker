@@ -74,7 +74,7 @@ export default function Canvas({
   };
 
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    log(`CanvasMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`, 'general');
+    log(`CanvasMouseDown: button=${e.button}`, 'general');
     
     if (deleteMode) return;
     
@@ -84,7 +84,8 @@ export default function Canvas({
       return;
     }
 
-    if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) {
+    const targetIsCanvas = e.target === canvasRef.current || e.target === e.currentTarget.firstElementChild;
+    if (!targetIsCanvas) {
         log(`CanvasMouseDown: Click was not on canvas background. Ignoring.`, 'general');
         return;
     }
@@ -330,3 +331,5 @@ export default function Canvas({
     </div>
   );
 }
+
+    
