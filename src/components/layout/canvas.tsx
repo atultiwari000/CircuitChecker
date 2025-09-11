@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useRef, type MouseEvent, useCallback, useEffect } from 'react';
+import { useRef, type MouseEvent, useCallback, useEffect, useState } from 'react';
 import type { Circuit, ValidationResult, LogCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Waves, Scissors, Move } from 'lucide-react';
@@ -11,7 +11,6 @@ import { useComponentDrag } from '@/hooks/use-component-drag';
 import { useWiring } from '@/hooks/use-wiring';
 import { getPinAbsolutePosition, getComponentDimensions } from '@/lib/canvas-utils';
 import WiringRuler from '../canvas/wiring-ruler';
-import { useState } from 'react';
 
 interface CanvasProps {
   circuit: Circuit;
@@ -57,6 +56,7 @@ export default function Canvas({
     toWorldSpace,
     onUpdateComponentPosition,
     moveMode,
+    wiringMode,
     onSelectComponent,
     log
   });
@@ -77,6 +77,8 @@ export default function Canvas({
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
     log(`CanvasMouseDown: button=${e.button}`, 'general');
     
+    // This is the key change: if we are in wiring mode and a wire has been started,
+    // any click on the canvas should be treated as adding a new point to the wire.
     if (wiringMode && wireStart) {
       log(`CanvasMouseDown: In wiring mode with wire started. Calling handleCanvasClick.`, 'wiring');
       handleCanvasClick(e);
@@ -84,7 +86,7 @@ export default function Canvas({
     }
 
     const targetIsCanvas = e.target === canvasRef.current || e.target === e.currentTarget.firstElementChild;
-    log(`CanvasMouseDown: In wiring mode with wire started. Target is canvas or child: ${targetIsCanvas}`);
+    log(`CanvasMouseDown: Target is canvas or child: ${targetIsCanvas}`);
     if (!targetIsCanvas) {
         log(`CanvasMouseDown: Click was not on canvas background. Ignoring.`, 'general');
         return;
@@ -102,7 +104,7 @@ export default function Canvas({
   const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
     if (isPanning) {
       handlePanMove(e);
-    } else if (wiringMode) {
+    } else {
       handleWiringMouseMove(e);
     }
   };
@@ -130,10 +132,14 @@ export default function Canvas({
 
   const getComponentPosition = (id: string) => {
     if (dragging?.id === id && dragPositions.current[id]) {
-      return dragPositions.current[id];
+      const livePos = dragPositions.current[id];
+      log(`getComponentPosition: Using live drag position for ${id}: {x:${livePos.x.toFixed(0)}, y:${livePos.y.toFixed(0)}}`, 'drag');
+      return livePos;
     }
     const component = circuit.components.find(c => c.id === id);
-    return component ? component.position : { x: 0, y: 0 };
+    const staticPos = component ? component.position : { x: 0, y: 0 };
+    // log(`getComponentPosition: Using static circuit position for ${id}: {x:${staticPos.x.toFixed(0)}, y:${staticPos.y.toFixed(0)}}`, 'drag');
+    return staticPos;
   }
   
   const handleComponentClick = (id: string) => {

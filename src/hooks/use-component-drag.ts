@@ -30,8 +30,8 @@ export function useComponentDrag({
 
   const handleComponentMouseDown = (e: MouseEvent, componentId: string) => {
     log(`ComponentMouseDown: id=${componentId}, button=${e.button}, moveMode=${moveMode}`, 'drag');
-    if (!moveMode) {
-      log('ComponentMouseDown: Aborting, move mode is not active.', 'drag');
+    if (!moveMode || wiringMode) {
+      log(`ComponentMouseDown: Aborting, moveMode=${moveMode}, wiringMode=${wiringMode}.`, 'drag');
       return;
     }
     if (e.button !== 0 || (e.ctrlKey || e.metaKey)) {
@@ -53,39 +53,44 @@ export function useComponentDrag({
       x: worldPos.x - component.position.x,
       y: worldPos.y - component.position.y,
     };
-    setDragging({ id: componentId, offset });
 
     log(`ComponentMouseDown: Start dragging component ${componentId} with offset {x:${offset.x.toFixed(2)}, y:${offset.y.toFixed(2)}}`, 'drag');
+    setDragging({ id: componentId, offset });
 
     const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
-      if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
-      animationFrame.current = requestAnimationFrame(() => {
-        // A bit of a hack to get the most up-to-date dragging state
-        setDragging(d => {
-            if (!d) return null;
-            const newWorldPos = toWorldSpace({ x: moveEvent.clientX, y: moveEvent.clientY });
-            
-            const newX = newWorldPos.x - d.offset.x;
-            const newY = newWorldPos.y - d.offset.y;
-
-            dragPositions.current[d.id] = { x: newX, y: newY };
-            return {...d};
+        if (animationFrame.current) {
+            cancelAnimationFrame(animationFrame.current);
+        }
+        animationFrame.current = requestAnimationFrame(() => {
+            setDragging(d => {
+                if (!d) return null;
+                const newWorldPos = toWorldSpace({ x: moveEvent.clientX, y: moveEvent.clientY });
+                const newX = newWorldPos.x - d.offset.x;
+                const newY = newWorldPos.y - d.offset.y;
+                dragPositions.current[d.id] = { x: newX, y: newY };
+                log(`DragMove: New live position for ${d.id}: {x:${newX.toFixed(2)}, y:${newY.toFixed(2)}}`, 'drag');
+                // Force re-render by creating a new object
+                return { ...d };
+            });
         });
-      });
     };
 
     const handleMouseUp = (upEvent: globalThis.MouseEvent) => {
-      if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
+      log(`ComponentMouseUp: Drag ended for component.`, 'drag');
+      if (animationFrame.current) {
+        cancelAnimationFrame(animationFrame.current);
+      }
       
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       
       setDragging(d => {
         if (d && dragPositions.current[d.id]) {
-            log(`ComponentMouseUp: End dragging component ${d.id}`, 'drag');
-            onUpdateComponentPosition(d.id, dragPositions.current[d.id]);
+            const finalPosition = dragPositions.current[d.id];
+            log(`ComponentMouseUp: Calling onUpdateComponentPosition for ${d.id} with final position {x:${finalPosition.x.toFixed(2)}, y:${finalPosition.y.toFixed(2)}}`, 'drag');
+            onUpdateComponentPosition(d.id, finalPosition);
         } else {
-            log(`ComponentMouseUp: Drag ended but no component was being dragged.`, 'drag');
+            log(`ComponentMouseUp: Drag ended but no component was being tracked.`, 'drag');
         }
         return null;
       });

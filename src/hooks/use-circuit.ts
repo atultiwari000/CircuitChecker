@@ -14,13 +14,13 @@ export function useCircuit() {
   const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
 
   const log = useCallback((message: string, category: LogCategory = 'general') => {
-    // const timestamp = new Date().toLocaleTimeString();
-    // const newLog: LogEntry = {
-    //     timestamp,
-    //     message,
-    //     category,
-    // };
-    // setDebugLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
+    const timestamp = new Date().toLocaleTimeString();
+    const newLog: LogEntry = {
+        timestamp,
+        message,
+        category,
+    };
+    setDebugLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
   }, []);
   
   useEffect(() => {
@@ -163,7 +163,7 @@ export function useCircuit() {
         setMoveMode(false);
         break;
     }
-  }, [log, wiringMode]);
+  }, [log, wiringMode, deleteMode, moveMode]);
 
   // Using useEffect in the hook to manage global listeners
   useEffect(() => {
