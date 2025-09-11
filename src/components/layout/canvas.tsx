@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, type MouseEvent, memo, useCallback } from 'react';
@@ -99,11 +100,13 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const [linking, setLinking] = useState<{ from: { componentId: string, pinId: string }, to: { x: number, y: number } } | null>(null);
-  const [dragging, setDragging] = useState<{ id: string, offset: { x: number, y: number }, currentPos: {x: number, y: number} } | null>(null);
+  const [dragging, setDragging] = useState<{ id: string, offset: { x: number, y: number } } | null>(null);
+  const currentPositions = useRef<{[key:string]: {x: number, y: number}}>({});
 
 
   const getValidationStatus = (id: string) => {
-    return validationResults.find(r => r.targetId === id)?.status || 'unchecked';
+    const result = validationResults.find(r => r.targetId === id);
+    return result ? result.status : 'unchecked';
   };
 
   const toWorldSpace = ({ x, y }: { x: number, y: number }) => {
@@ -138,13 +141,11 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       setLinking(l => l && { ...l, to: { x: worldPos.x, y: worldPos.y } });
     }
     if (dragging) {
-      setDragging(d => d && ({
-        ...d,
-        currentPos: {
-          x: worldPos.x - d.offset.x,
-          y: worldPos.y - d.offset.y,
-        }
-      }));
+      const newX = worldPos.x - dragging.offset.x;
+      const newY = worldPos.y - dragging.offset.y;
+      currentPositions.current[dragging.id] = {x: newX, y: newY};
+      // Force a re-render by creating a new object for the state
+      setDragging(d => d ? {...d} : null); 
     }
   };
 
@@ -154,7 +155,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
         e.currentTarget.style.cursor = 'default';
     }
     if (dragging) {
-      onUpdateComponentPosition(dragging.id, dragging.currentPos);
+      onUpdateComponentPosition(dragging.id, currentPositions.current[dragging.id]);
       setDragging(null);
     }
     if (linking) {
@@ -214,6 +215,13 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     const component = circuit.components.find(c => c.id === componentId);
     if (!component) return;
 
+    // Initialize currentPositions for all components if not already done
+    if(Object.keys(currentPositions.current).length === 0) {
+      circuit.components.forEach(c => {
+        currentPositions.current[c.id] = c.position;
+      });
+    }
+
     const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
     setDragging({
       id: componentId,
@@ -221,7 +229,6 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
         x: worldPos.x - component.position.x,
         y: worldPos.y - component.position.y,
       },
-      currentPos: component.position,
     });
   };
 
@@ -230,7 +237,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     if (e.button !== 0) return;
     const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
     setLinking({ from: { componentId, pinId }, to: worldPos });
-  }, [viewTransform]);
+  }, [viewTransform.x, viewTransform.y, viewTransform.scale]);
 
   const handlePinMouseUp = useCallback((e: MouseEvent, componentId: string, pinId: string) => {
     e.stopPropagation();
@@ -242,9 +249,15 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
 
   const getComponentPosition = (id: string) => {
     if (dragging?.id === id) {
-      return dragging.currentPos;
+      return currentPositions.current[id];
     }
-    return circuit.components.find(c => c.id === id)?.position || { x: 0, y: 0 };
+    const component = circuit.components.find(c => c.id === id);
+    if (component) {
+      // Keep track of original positions
+      currentPositions.current[id] = component.position;
+      return component.position;
+    }
+    return { x: 0, y: 0 };
   }
 
 
