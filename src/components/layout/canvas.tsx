@@ -105,6 +105,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
   const [wireStart, setWireStart] = useState<{ componentId: string, pinId: string } | null>(null);
   const [wirePath, setWirePath] = useState<{x: number, y: number}[]>([]);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
+  const [nextSegmentDirection, setNextSegmentDirection] = useState<'horizontal' | 'vertical'>('horizontal');
 
   const [dragging, setDragging] = useState<{ id: string, offset: { x: number, y: number } } | null>(null);
   
@@ -132,17 +133,15 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
         const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
         const lastPoint = wirePath[wirePath.length - 1];
         
-        const dx = Math.abs(worldPos.x - lastPoint.x);
-        const dy = Math.abs(worldPos.y - lastPoint.y);
-  
-        let nextPoint: {x: number, y: number};
-        // This logic determines which segment to add (horizontal or vertical)
-        if (dx > dy) {
-            nextPoint = { x: worldPos.x, y: lastPoint.y };
+        let newPoint: {x: number, y: number};
+        if (nextSegmentDirection === 'horizontal') {
+            newPoint = { x: worldPos.x, y: lastPoint.y };
+            setNextSegmentDirection('vertical');
         } else {
-            nextPoint = { x: lastPoint.x, y: worldPos.y };
+            newPoint = { x: lastPoint.x, y: worldPos.y };
+            setNextSegmentDirection('horizontal');
         }
-        setWirePath(p => [...p, nextPoint]);
+        setWirePath(p => [...p, newPoint]);
   
     } else if (!wiringMode && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
       setIsPanning(true);
@@ -276,6 +275,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       const startPos = getPinAbsolutePosition(component, pinId);
       setWireStart({ componentId, pinId });
       setWirePath([startPos]);
+      setNextSegmentDirection('horizontal'); // Start with horizontal segment
     } else {
       // End a wire
       if (wireStart.componentId !== componentId) {
@@ -287,29 +287,32 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
         // Add the last segment snapping to the end pin
         const finalPath = [...wirePath];
         const lastPoint = finalPath[finalPath.length - 1];
-        const dx = Math.abs(endPinPos.x - lastPoint.x);
-        const dy = Math.abs(endPinPos.y - lastPoint.y);
 
-        let pathSegment = {};
-        if (dx > dy) {
-            pathSegment = { x: endPinPos.x, y: lastPoint.y };
+        // Add intermediate point based on the next segment direction
+        if (nextSegmentDirection === 'horizontal') {
+            finalPath.push({ x: endPinPos.x, y: lastPoint.y });
         } else {
-            pathSegment = { x: lastPoint.x, y: endPinPos.y };
+            finalPath.push({ x: lastPoint.x, y: endPinPos.y });
         }
         
-        // Add the segment only if it's different from the last point
-        if (JSON.stringify(pathSegment) !== JSON.stringify(lastPoint)) {
-          finalPath.push(pathSegment as {x: number, y: number});
-        }
         finalPath.push(endPinPos);
 
-        onAddConnection(wireStart, { componentId, pinId }, finalPath);
+        // Remove redundant points
+        const cleanedPath = finalPath.filter((p, i, arr) => {
+          if (i === 0 || i === arr.length -1) return true;
+          const prev = arr[i-1];
+          const next = arr[i+1];
+          // if point is on the same line as prev and next, remove it
+          return !( (p.x === prev.x && p.x === next.x) || (p.y === prev.y && p.y === next.y) );
+        });
+
+        onAddConnection(wireStart, { componentId, pinId }, cleanedPath);
       }
       // Reset for next wire
       setWireStart(null);
       setWirePath([]);
     }
-  }, [wiringMode, wireStart, wirePath, circuit.components, onAddConnection]);
+  }, [wiringMode, wireStart, wirePath, circuit.components, onAddConnection, nextSegmentDirection]);
 
   const getComponentPosition = (id: string) => {
     if (dragging?.id === id && dragPositions.current[id]) {
@@ -318,14 +321,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     const component = circuit.components.find(c => c.id === id);
     return component ? component.position : { x: 0, y: 0 };
   }
-
-  const cancelWiring = useCallback(() => {
-    setWireStart(null);
-    setWirePath([]);
-    setWiringMode(false);
-  }, [setWiringMode]);
-
-
+  
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
@@ -460,9 +456,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
 
                 // Draw live segment to cursor
                 const lastPoint = wirePath[wirePath.length - 1];
-                const dx = Math.abs(cursorPos.x - lastPoint.x);
-                const dy = Math.abs(cursorPos.y - lastPoint.y);
-                if (dx > dy) {
+                if (nextSegmentDirection === 'horizontal') {
                     pathString += ` L ${cursorPos.x} ${lastPoint.y}`;
                 } else {
                     pathString += ` L ${lastPoint.x} ${cursorPos.y}`;
@@ -482,5 +476,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     </div>
   );
 }
+
+    
 
     
