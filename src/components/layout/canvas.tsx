@@ -397,31 +397,33 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
               const p2 = getPinAbsolutePosition({...toComponent, position: toPosition}, conn.to.pinId);
               const status = getValidationStatus(conn.id);
 
-              // Use stored path if available, otherwise draw straight line
-              let pathData = `M ${p1.x} ${p1.y} `;
+              let pathData = '';
               if (conn.path && conn.path.length > 0) {
-                // Adjust saved relative path to current component positions
-                const pathStart = conn.path[0];
-                const pathEnd = conn.path[conn.path.length - 1];
-                const dxStart = p1.x - pathStart.x;
-                const dyStart = p1.y - pathStart.y;
-                const dxEnd = p2.x - pathEnd.x;
-                const dyEnd = p2.y - pathEnd.y;
-
-                // For now, let's just assume a simple translation is enough if components are moved
-                // A more robust solution would recalculate routing.
-                const adjustedPath = conn.path.map((p, i) => {
-                  if (i < conn.path.length/2) return { x: p.x + dxStart, y: p.y + dyStart };
-                  return { x: p.x + dxEnd, y: p.y + dyEnd };
-                })
+                 // Adjust saved relative path to current component positions.
+                 // This is a simplified adjustment and might not be perfect for complex path deformations.
+                const pathStartOriginal = conn.path[0];
+                const pathEndOriginal = conn.path[conn.path.length - 1];
+                const dxStart = p1.x - pathStartOriginal.x;
+                const dyStart = p1.y - pathStartOriginal.y;
+                const dxEnd = p2.x - pathEndOriginal.x;
+                const dyEnd = p2.y - pathEndOriginal.y;
                 
-                // Let's just redraw based on pins for now as path adjustment is complex
-                 const midX = (p1.x + p2.x) / 2;
-                 pathData += `C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
+                // We'll interpolate the translation difference along the path.
+                const adjustedPath = conn.path.map((p, i, arr) => {
+                    const progress = i / (arr.length - 1);
+                    const dx = dxStart * (1 - progress) + dxEnd * progress;
+                    const dy = dyStart * (1 - progress) + dyEnd * progress;
+                    return { x: p.x + dx, y: p.y + dy };
+                });
 
+                pathData = `M ${adjustedPath[0].x} ${adjustedPath[0].y}`;
+                for(let i = 1; i < adjustedPath.length; i++) {
+                    pathData += ` L ${adjustedPath[i].x} ${adjustedPath[i].y}`;
+                }
               } else {
+                 // Fallback for old connections without a path or if something goes wrong.
                  const midX = (p1.x + p2.x) / 2;
-                 pathData += `C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
+                 pathData = `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
               }
 
 

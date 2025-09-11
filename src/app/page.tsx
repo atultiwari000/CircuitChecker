@@ -107,12 +107,12 @@ export default function Home() {
     setSelectedComponentId(newId);
   };
 
-  const handleAddConnection = (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }) => {
+  const handleAddConnection = (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }, path: {x: number, y: number}[]) => {
     const newConnection: Connection = {
       id: `conn-${Date.now()}`,
       from,
       to,
-      path: [],
+      path,
     };
     setCircuit(prev => ({
       ...prev,
