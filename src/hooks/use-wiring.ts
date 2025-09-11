@@ -49,24 +49,30 @@ export function useWiring({
       log(`handlePinClick: wireStart set to { comp: ${componentId}, pin: ${pinId} }, path: ${JSON.stringify([pinPos])}`, 'wiring');
     } else {
       log('handlePinClick: Ending a wire.', 'wiring');
-      if (wireStart.componentId !== componentId) {
+      if (wireStart.componentId !== componentId || wireStart.pinId !== pinId) {
         const finalPath = [...wirePath];
         const lastPoint = finalPath[finalPath.length - 1];
 
         // Decide if last segment is horizontal or vertical
-        if (Math.abs(pinPos.x - lastPoint.x) > Math.abs(pinPos.y - lastPoint.y)) {
-          // Horizontal is longer, create a horizontal segment then a vertical one
-          if (lastPoint.y !== pinPos.y) finalPath.push({ x: pinPos.x, y: lastPoint.y });
+        const dx = Math.abs(pinPos.x - lastPoint.x);
+        const dy = Math.abs(pinPos.y - lastPoint.y);
+
+        const currentCursorWorldPos = cursorPos;
+        const lastSegmentIsHorizontal = Math.abs(currentCursorWorldPos.x - lastPoint.x) > Math.abs(currentCursorWorldPos.y - lastPoint.y);
+
+        if (lastSegmentIsHorizontal) {
+            if(lastPoint.y !== pinPos.y) finalPath.push({ x: pinPos.x, y: lastPoint.y });
         } else {
-          // Vertical is longer, create a vertical segment then a horizontal one
-          if (lastPoint.x !== pinPos.x) finalPath.push({ x: lastPoint.x, y: pinPos.y });
+            if(lastPoint.x !== pinPos.x) finalPath.push({ x: lastPoint.x, y: pinPos.y });
         }
+
         finalPath.push(pinPos);
 
         const cleanedPath = finalPath.filter((p, i, arr) => {
           if (i === 0 || i === arr.length -1) return true;
           const prev = arr[i-1];
           const next = arr[i+1];
+          // Remove redundant points that are in a straight line
           return !( (p.x === prev.x && p.x === next.x) || (p.y === prev.y && p.y === next.y) );
         });
 
@@ -77,7 +83,7 @@ export function useWiring({
       }
       resetWiring();
     }
-  }, [wiringMode, wireStart, wirePath, circuit.components, onAddConnection, resetWiring, log]);
+  }, [wiringMode, wireStart, wirePath, circuit.components, onAddConnection, resetWiring, log, cursorPos]);
 
   const handleCanvasClick = (e: MouseEvent) => {
     if (!wiringMode || !wireStart) return;
