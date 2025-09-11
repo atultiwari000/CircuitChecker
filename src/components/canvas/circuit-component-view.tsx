@@ -65,7 +65,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
                 key={pin.id} 
                 style={{ left: pin.x, top: pin.y }} 
                 className="absolute -translate-x-1/2 -translate-y-1/2 p-2 cursor-crosshair"
-                onClick={(e) => onPinClick(e, component.id, pin.id)}
+                onMouseDown={(e) => { e.stopPropagation(); onPinClick(e, component.id, pin.id); }}
             >
                 <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground group-hover:bg-primary transition-colors" />
             </div>

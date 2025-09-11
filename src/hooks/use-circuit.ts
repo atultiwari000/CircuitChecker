@@ -22,6 +22,7 @@ export function useCircuit() {
   }, []);
 
   const handleValidate = () => {
+    log('handleValidate: Triggered', 'general');
     const newValidationResults: ValidationResult[] = [
       { targetId: 'conn-1', status: 'fail', message: 'Voltage mismatch: Expected 5V, got 3.3V on IC Pin 1.' },
       { targetId: 'conn-2', status: 'pass' },
@@ -36,6 +37,7 @@ export function useCircuit() {
   };
 
   const handleReset = () => {
+    log('handleReset: Triggered', 'general');
     setValidationResults([]);
     log('Validation results reset.');
   };
@@ -57,7 +59,7 @@ export function useCircuit() {
       components: [...prev.components, newComponent],
     }));
     setSelectedComponentId(newId);
-    log(`Added component: ${newComponent.name} at {x: ${position.x.toFixed(0)}, y: ${position.y.toFixed(0)}}`);
+    log(`Added component: ${newComponent.name} at {x: ${position.x.toFixed(0)}, y: ${position.y.toFixed(0)}}`, 'general');
   };
 
   const handleAddConnection = (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }, path: {x: number, y: number}[]) => {
@@ -81,7 +83,7 @@ export function useCircuit() {
         c.id === id ? { ...c, position } : c
       ),
     }));
-    // Note: Logging this can be very noisy during drag, so it's omitted.
+     log(`Updated position for component ${id} to { x: ${position.x.toFixed(0)}, y: ${position.y.toFixed(0)} }`, 'drag');
   };
 
   const handleUpdateComponentProperties = (id: string, properties: {[key: string]: string | number}) => {
@@ -91,15 +93,16 @@ export function useCircuit() {
         c.id === id ? { ...c, properties: {...c.properties, ...properties} } : c
       ),
     }));
-    log(`Updated properties for component ${id}`);
+    log(`Updated properties for component ${id}`, 'general');
   };
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key.toLowerCase() === 'w' && !(event.target instanceof HTMLInputElement)) {
       event.preventDefault();
       setWiringMode(prev => {
-        log(`Wiring mode toggled to: ${!prev}`, 'wiring');
-        return !prev;
+        const newState = !prev;
+        log(`Toggling wiring mode to: ${newState}`, 'wiring');
+        return newState;
       });
     }
   }, [log]);

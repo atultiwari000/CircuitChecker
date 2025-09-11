@@ -24,41 +24,41 @@ export function useWiring({
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
 
   const resetWiring = useCallback(() => {
+    log('Wiring state reset.', 'wiring');
     setWireStart(null);
     setWirePath([]);
-    log('Wiring state reset.', 'wiring');
   }, [log]);
   
   const handlePinClick = useCallback((e: MouseEvent, componentId: string, pinId: string) => {
-    log(`handlePinClick: compId=${componentId}, pinId=${pinId}`, 'wiring');
+    log(`PinClick: compId=${componentId}, pinId=${pinId}, button=${e.button}`, 'wiring');
     if (!wiringMode) {
-      log('handlePinClick: Not in wiring mode, ignoring.', 'wiring');
+      log('PinClick: Not in wiring mode, ignoring.', 'wiring');
       return;
     }
     e.stopPropagation();
 
     const component = circuit.components.find(c => c.id === componentId);
-    if (!component) return;
+    if (!component) {
+      log(`PinClick: Component ${componentId} not found.`, 'wiring');
+      return;
+    }
     const pinPos = getPinAbsolutePosition(component, pinId);
+    log(`PinClick: Pin absolute position: {x: ${pinPos.x.toFixed(0)}, y: ${pinPos.y.toFixed(0)}}`, 'wiring');
 
     if (!wireStart) {
-      log('handlePinClick: Starting a new wire.', 'wiring');
+      log('PinClick: Starting a new wire.', 'wiring');
       setWireStart({ componentId, pinId });
       setWirePath([pinPos]);
       setCursorPos(pinPos);
-      log(`handlePinClick: wireStart set to { comp: ${componentId}, pin: ${pinId} }, path: ${JSON.stringify([pinPos])}`, 'wiring');
+      log(`PinClick: wireStart set to { comp: ${componentId}, pin: ${pinId} }, path: ${JSON.stringify([pinPos])}`, 'wiring');
     } else {
-      log('handlePinClick: Ending a wire.', 'wiring');
+      log('PinClick: Ending a wire.', 'wiring');
       if (wireStart.componentId !== componentId || wireStart.pinId !== pinId) {
+        
         const finalPath = [...wirePath];
         const lastPoint = finalPath[finalPath.length - 1];
 
-        // Decide if last segment is horizontal or vertical
-        const dx = Math.abs(pinPos.x - lastPoint.x);
-        const dy = Math.abs(pinPos.y - lastPoint.y);
-
-        const currentCursorWorldPos = cursorPos;
-        const lastSegmentIsHorizontal = Math.abs(currentCursorWorldPos.x - lastPoint.x) > Math.abs(currentCursorWorldPos.y - lastPoint.y);
+        const lastSegmentIsHorizontal = Math.abs(cursorPos.x - lastPoint.x) > Math.abs(cursorPos.y - lastPoint.y);
 
         if (lastSegmentIsHorizontal) {
             if(lastPoint.y !== pinPos.y) finalPath.push({ x: pinPos.x, y: lastPoint.y });
@@ -67,30 +67,38 @@ export function useWiring({
         }
 
         finalPath.push(pinPos);
+        log(`PinClick: Proposed final path: ${JSON.stringify(finalPath)}`, 'wiring');
 
         const cleanedPath = finalPath.filter((p, i, arr) => {
           if (i === 0 || i === arr.length -1) return true;
           const prev = arr[i-1];
           const next = arr[i+1];
           // Remove redundant points that are in a straight line
-          return !( (p.x === prev.x && p.x === next.x) || (p.y === prev.y && p.y === next.y) );
+          const isRedundant = (p.x === prev.x && p.x === next.x) || (p.y === prev.y && p.y === next.y);
+          if (isRedundant) log(`PinClick: Removing redundant point at index ${i}: ${JSON.stringify(p)}`, 'wiring');
+          return !isRedundant;
         });
-
-        log(`handlePinClick: Final path: ${JSON.stringify(cleanedPath)}`, 'wiring');
+        
+        log(`PinClick: Calling onAddConnection with cleaned path: ${JSON.stringify(cleanedPath)}`, 'wiring');
         onAddConnection(wireStart, { componentId, pinId }, cleanedPath);
       } else {
-        log('handlePinClick: Clicked on same component, cancelling wire.', 'wiring');
+        log('PinClick: Clicked on the same start pin. Cancelling wire.', 'wiring');
       }
       resetWiring();
     }
   }, [wiringMode, wireStart, wirePath, circuit.components, onAddConnection, resetWiring, log, cursorPos]);
 
   const handleCanvasClick = (e: MouseEvent) => {
-    if (!wiringMode || !wireStart) return;
-    log('handleCanvasClick: Adding point to wire path.', 'wiring');
+    log(`CanvasClick: Received click event at screen {x: ${e.clientX}, y: ${e.clientY}}`, 'wiring');
+    if (!wiringMode || !wireStart) {
+        log(`CanvasClick: Ignoring. WiringMode: ${wiringMode}, WireStart: ${!!wireStart}`, 'wiring');
+        return;
+    }
+    log('CanvasClick: Adding point to wire path.', 'wiring');
 
     const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
     const lastPoint = wirePath[wirePath.length - 1];
+    log(`CanvasClick: World pos: {x:${worldPos.x.toFixed(0)}, y:${worldPos.y.toFixed(0)}}. Last path point: {x:${lastPoint.x.toFixed(0)}, y:${lastPoint.y.toFixed(0)}}`, 'wiring');
     
     let newPoint: {x: number, y: number};
     // Determine if the next segment should be horizontal or vertical based on cursor position
@@ -100,10 +108,11 @@ export function useWiring({
         newPoint = { x: lastPoint.x, y: worldPos.y };
     }
     setWirePath(p => [...p, newPoint]);
-    log(`handleCanvasClick: New wire point: { x: ${newPoint.x.toFixed(0)}, y: ${newPoint.y.toFixed(0)} }`, 'wiring');
+    log(`CanvasClick: New wire point added: { x: ${newPoint.x.toFixed(0)}, y: ${newPoint.y.toFixed(0)} }`, 'wiring');
   };
 
   const handleWiringMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (!wireStart) return;
     const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
     setCursorPos(worldPos);
   };

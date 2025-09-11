@@ -65,24 +65,27 @@ export default function Canvas({
   };
 
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    log(`handleMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`, 'general');
+    log(`CanvasMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`, 'general');
     
-    // If we are in wiring mode and a wire has been started, any click on the canvas is for adding a point.
     if (wiringMode && wireStart) {
-      // Ensure we are clicking on the canvas itself, not a component.
+      log(`CanvasMouseDown: In wiring mode with wire started. Target is canvas: ${e.target === canvasRef.current}`, 'wiring');
       if (e.target === canvasRef.current || e.target === e.currentTarget.firstChild) {
+          log(`CanvasMouseDown: Calling handleCanvasClick.`, 'wiring');
           handleCanvasClick(e);
       }
       return;
     }
 
-    // If we're not wiring, or haven't started a wire, handle other interactions.
-    if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) return;
+    if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) {
+        log(`CanvasMouseDown: Click was not on canvas background. Ignoring.`, 'general');
+        return;
+    }
 
     if (!isDragging() && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
+      log(`CanvasMouseDown: Starting pan.`, 'pan');
       handlePanStart(e);
     } else if (e.button === 0) {
-      log('handleMouseDown: Deselecting component', 'general');
+      log('CanvasMouseDown: Deselecting component.', 'general');
       onSelectComponent(null);
     }
   };
@@ -98,6 +101,7 @@ export default function Canvas({
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
+    log(`CanvasDragOver: Item being dragged over canvas.`, 'general');
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -105,7 +109,7 @@ export default function Canvas({
     const data = e.dataTransfer.getData('application/json');
     if (!data) return;
     const { type, name } = JSON.parse(data);
-    log(`handleDrop: Dropped item of type '${type}' with name '${name}'`, 'general');
+    log(`CanvasDrop: Dropped item of type '${type}' with name '${name}'`, 'general');
     if (type === 'component') {
       const position = toWorldSpace({ x: e.clientX, y: e.clientY });
       const dims = getComponentDimensions(name as keyof typeof getComponentDimensions);

@@ -25,8 +25,11 @@ export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (messag
   }, [viewTransform, canvasRef]);
 
   const handlePanStart = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (disabled) return;
-    log('handlePanStart: Start panning', 'pan');
+    if (disabled) {
+      log('PanStart: Ignored because pan is disabled.', 'pan');
+      return;
+    }
+    log('PanStart: Panning started.', 'pan');
     setIsPanning(true);
     panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
     if (e.currentTarget) {
@@ -38,12 +41,13 @@ export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (messag
     if (!isPanning || disabled) return;
     const x = e.clientX - panStart.current.x;
     const y = e.clientY - panStart.current.y;
+    log(`PanMove: Panning to x:${x.toFixed(0)}, y:${y.toFixed(0)}`, 'pan');
     setViewTransform(v => ({ ...v, x, y }));
   };
 
   const handlePanEnd = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isPanning) {
-      log('handlePanEnd: End panning', 'pan');
+      log('PanEnd: Panning ended.', 'pan');
       setIsPanning(false);
       if (e.currentTarget) {
         e.currentTarget.style.cursor = 'default';
@@ -52,7 +56,10 @@ export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (messag
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (disabled || !canvasRef.current) return;
+    if (disabled || !canvasRef.current) {
+        log(`Wheel: Ignored. Disabled: ${disabled}, Canvas Ref: ${!!canvasRef.current}`, 'pan');
+        return;
+    };
     const { clientX, clientY, deltaY } = e;
     const rect = canvasRef.current.getBoundingClientRect();
     
@@ -68,7 +75,7 @@ export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (messag
 
     const newX = mouseX - worldX * clampedScale;
     const newY = mouseY - worldY * clampedScale;
-
+    log(`Wheel: Zooming to scale: ${clampedScale.toFixed(2)} at {x:${newX.toFixed(0)}, y:${newY.toFixed(0)}}`, 'pan');
     setViewTransform({
         x: newX,
         y: newY,
