@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { CircuitComponent, ValidationResult } from '@/lib/types';
+import type { CircuitComponent, ValidationResult, Circuit, Connection, Pin } from '@/lib/types';
 import { initialCircuit } from '@/lib/data';
 import Header from '@/components/layout/header';
 import ComponentLibrary from '@/components/layout/component-library';
@@ -10,9 +10,60 @@ import PropertiesPanel from '@/components/layout/properties-panel';
 import AiSuggestionsDialog from '@/components/ai-suggestions-dialog';
 import { Button } from '@/components/ui/button';
 import { Bot } from 'lucide-react';
+import { ResistorIcon, CapacitorIcon, IcIcon } from '@/components/icons';
+
+const componentDefaults = {
+  Resistor: {
+    name: 'Resistor',
+    type: 'Resistor',
+    properties: { 'Resistance (Ω)': 1000, 'Power (W)': 0.25 },
+    pins: [
+      { id: 'p1', name: '1', x: 0, y: 20 },
+      { id: 'p2', name: '2', x: 80, y: 20 },
+    ],
+    dataset: {
+      'Part Number': 'Generic',
+      'Manufacturer': 'Unknown',
+      'Tolerance': '5%',
+    },
+  },
+  Capacitor: {
+    name: 'Capacitor',
+    type: 'Capacitor',
+    properties: { 'Capacitance (uF)': 1, 'Voltage Rating (V)': 16 },
+    pins: [
+      { id: 'p1', name: '1', x: 0, y: 20 },
+      { id: 'p2', name: '2', x: 80, y: 20 },
+    ],
+    dataset: {
+      'Part Number': 'Generic',
+      'Manufacturer': 'Unknown',
+      'Dielectric': 'Ceramic',
+    },
+  },
+  IC: {
+    name: 'IC',
+    type: 'IC',
+    properties: { 'Logic Type': 'Generic', 'Voltage (V)': 5 },
+    pins: [
+      { id: 'p1', name: '1', x: 0, y: 15 },
+      { id: 'p2', name: '2', x: 0, y: 45 },
+      { id: 'p3', name: '3', x: 0, y: 75 },
+      { id: 'p4', name: '4', x: 120, y: 15 },
+      { id: 'p5', name: '5', x: 120, y: 45 },
+      { id: 'p6', name: '6', x: 120, y: 75 },
+    ],
+    dataset: {
+      'Part Number': 'Generic',
+      'Manufacturer': 'Unknown',
+      'Package': 'DIP',
+    },
+  },
+};
+
 
 export default function Home() {
-  const [circuit, setCircuit] = useState(initialCircuit);
+  const [circuit, setCircuit] = useState<Circuit>(initialCircuit);
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(initialCircuit.components[0]?.id || null);
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   const [showAiDialog, setShowAiDialog] = useState(false);
@@ -35,6 +86,37 @@ export default function Home() {
     setValidationResults([]);
   }
 
+  const handleAddComponent = (type: 'Resistor' | 'Capacitor' | 'IC', position: { x: number, y: number }) => {
+    const newId = `${type.toLowerCase()}-${Date.now()}`;
+    const defaults = componentDefaults[type];
+    
+    const newComponent: CircuitComponent = {
+      ...defaults,
+      id: newId,
+      name: `${defaults.name} ${circuit.components.filter(c => c.type === type).length + 1}`,
+      position,
+      pins: defaults.pins.map(pin => ({...pin, id: `${newId}-${pin.id}`})),
+    };
+
+    setCircuit(prev => ({
+      ...prev,
+      components: [...prev.components, newComponent],
+    }));
+    setSelectedComponentId(newId);
+  };
+
+  const handleAddConnection = (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }) => {
+    const newConnection: Connection = {
+      id: `conn-${Date.now()}`,
+      from,
+      to,
+    };
+    setCircuit(prev => ({
+      ...prev,
+      connections: [...prev.connections, newConnection],
+    }));
+  };
+
   const selectedComponent = circuit.components.find(c => c.id === selectedComponentId);
   const validationFailures = validationResults
     .filter(r => r.status === 'fail' && r.message)
@@ -55,6 +137,8 @@ export default function Home() {
             validationResults={validationResults}
             onSelectComponent={setSelectedComponentId}
             selectedComponentId={selectedComponentId}
+            onAddComponent={handleAddComponent}
+            onAddConnection={handleAddConnection}
           />
         </main>
         <PropertiesPanel component={selectedComponent} />

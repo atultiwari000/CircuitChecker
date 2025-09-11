@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useRef, type MouseEvent } from 'react';
+import { useState, useRef, type MouseEvent, memo, useCallback } from 'react';
 import type { Circuit, ValidationResult, CircuitComponent, Pin } from '@/lib/types';
 import { ResistorIcon, CapacitorIcon, IcIcon } from '@/components/icons';
 import { cn } from '@/lib/utils';
-import { memo } from 'react';
+
 
 interface CanvasProps {
   circuit: Circuit;
   validationResults: ValidationResult[];
   selectedComponentId: string | null;
   onSelectComponent: (id: string | null) => void;
+  onAddComponent: (type: 'Resistor' | 'Capacitor' | 'IC', position: { x: number; y: number }) => void;
+  onAddConnection: (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }) => void;
 }
 
 const componentIcons = {
@@ -34,7 +36,7 @@ function getPinAbsolutePosition(component: CircuitComponent, pinId: string): { x
   };
 }
 
-const CircuitComponentView = memo(({ component, isSelected, validationStatus, onSelect }: { component: CircuitComponent, isSelected: boolean, validationStatus: 'pass' | 'fail' | 'unchecked', onSelect: (id: string) => void }) => {
+const CircuitComponentView = memo(({ component, isSelected, validationStatus, onSelect, onPinMouseDown, onPinMouseUp }: { component: CircuitComponent, isSelected: boolean, validationStatus: 'pass' | 'fail' | 'unchecked', onSelect: (id: string) => void, onPinMouseDown: (e: MouseEvent, componentId: string, pinId: string) => void, onPinMouseUp: (e: MouseEvent, componentId: string, pinId: string) => void }) => {
   const CompIcon = componentIcons[component.type];
   const dims = componentDimensions[component.type];
 
@@ -67,8 +69,14 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
         <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs font-semibold">{component.name}</span>
         
         {component.pins.map(pin => (
-            <div key={pin.id} style={{ left: pin.x, top: pin.y }} className="absolute -translate-x-1/2 -translate-y-1/2">
-                <div className="w-2 h-2 rounded-full bg-muted-foreground group-hover:bg-primary" />
+            <div 
+                key={pin.id} 
+                style={{ left: pin.x, top: pin.y }} 
+                className="absolute -translate-x-1/2 -translate-y-1/2 p-2"
+                onMouseDown={(e) => onPinMouseDown(e, component.id, pin.id)}
+                onMouseUp={(e) => onPinMouseUp(e, component.id, pin.id)}
+            >
+                <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground group-hover:bg-primary transition-colors" />
             </div>
         ))}
       </div>
@@ -77,14 +85,25 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
 });
 CircuitComponentView.displayName = 'CircuitComponentView';
 
-export default function Canvas({ circuit, validationResults, selectedComponentId, onSelectComponent }: CanvasProps) {
+export default function Canvas({ circuit, validationResults, selectedComponentId, onSelectComponent, onAddComponent, onAddConnection }: CanvasProps) {
   const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
 
+  const [linking, setLinking] = useState<{ from: { componentId: string, pinId: string }, to: { x: number, y: number } } | null>(null);
+
   const getValidationStatus = (id: string) => {
     return validationResults.find(r => r.targetId === id)?.status || 'unchecked';
+  };
+
+  const toWorldSpace = ({ x, y }: { x: number, y: number }) => {
+    if (!canvasRef.current) return { x: 0, y: 0 };
+    const rect = canvasRef.current.getBoundingClientRect();
+    return {
+      x: (x - rect.left - viewTransform.x) / viewTransform.scale,
+      y: (y - rect.top - viewTransform.y) / viewTransform.scale,
+    };
   };
 
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
@@ -102,11 +121,18 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       const y = e.clientY - panStart.current.y;
       setViewTransform(v => ({...v, x, y}));
     }
+    if (linking) {
+      const { x, y } = toWorldSpace({ x: e.clientX, y: e.clientY });
+      setLinking(l => l && { ...l, to: { x, y } });
+    }
   };
 
   const handleMouseUp = (e: MouseEvent<HTMLDivElement>) => {
     setIsPanning(false);
     e.currentTarget.style.cursor = 'default';
+    if (linking) {
+      setLinking(null);
+    }
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -114,7 +140,6 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     const { clientX, clientY, deltaY } = e;
     const rect = canvasRef.current.getBoundingClientRect();
     
-    // Position of the mouse relative to the canvas
     const mouseX = clientX - rect.left;
     const mouseY = clientY - rect.top;
 
@@ -122,11 +147,9 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     const newScale = deltaY < 0 ? viewTransform.scale * scaleFactor : viewTransform.scale / scaleFactor;
     const clampedScale = Math.max(0.2, Math.min(newScale, 3));
 
-    // Position of the mouse in the scaled view, before zoom
     const worldX = (mouseX - viewTransform.x) / viewTransform.scale;
     const worldY = (mouseY - viewTransform.y) / viewTransform.scale;
 
-    // The new top-left of the view
     const newX = mouseX - worldX * clampedScale;
     const newY = mouseY - worldY * clampedScale;
 
@@ -137,6 +160,39 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     });
   }
 
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const data = e.dataTransfer.getData('application/json');
+    if (!data) return;
+    const { type, name } = JSON.parse(data);
+    if (type === 'component') {
+      const position = toWorldSpace({ x: e.clientX, y: e.clientY });
+      const dims = componentDimensions[name as keyof typeof componentDimensions];
+      position.x -= dims.width / 2;
+      position.y -= dims.height / 2;
+      onAddComponent(name, position);
+    }
+  };
+
+  const handlePinMouseDown = useCallback((e: MouseEvent, componentId: string, pinId: string) => {
+    e.stopPropagation();
+    const { x, y } = toWorldSpace({ x: e.clientX, y: e.clientY });
+    setLinking({ from: { componentId, pinId }, to: { x, y } });
+  }, [viewTransform]);
+
+  const handlePinMouseUp = useCallback((e: MouseEvent, componentId: string, pinId: string) => {
+    e.stopPropagation();
+    if (linking && linking.from.componentId !== componentId) {
+      onAddConnection(linking.from, { componentId, pinId });
+    }
+    setLinking(null);
+  }, [linking, onAddConnection]);
+
   return (
     <div 
       ref={canvasRef}
@@ -146,6 +202,8 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       <div 
         className="relative w-full h-full"
@@ -158,6 +216,8 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
               isSelected={selectedComponentId === comp.id}
               validationStatus={getValidationStatus(comp.id)}
               onSelect={onSelectComponent}
+              onPinMouseDown={handlePinMouseDown}
+              onPinMouseUp={handlePinMouseUp}
           />
         ))}
         <svg className="absolute top-0 left-0 pointer-events-none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
@@ -200,6 +260,22 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
                 </g>
               );
             })}
+            {linking && (() => {
+                const fromComponent = circuit.components.find(c => c.id === linking.from.componentId);
+                if (!fromComponent) return null;
+                const p1 = getPinAbsolutePosition(fromComponent, linking.from.pinId);
+                const p2 = linking.to;
+                const midX = (p1.x + p2.x) / 2;
+                const pathData = `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
+                return (
+                    <path
+                        d={pathData}
+                        className="fill-none stroke-2 stroke-primary/70 stroke-dasharray-4"
+                        style={{strokeDasharray: '4 4'}}
+                        markerEnd="url(#marker-circle)"
+                    />
+                )
+            })()}
           </g>
         </svg>
       </div>
