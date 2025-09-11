@@ -2,7 +2,7 @@
 'use client';
 
 import { useRef, type MouseEvent, useCallback, useEffect } from 'react';
-import type { Circuit, ValidationResult } from '@/lib/types';
+import type { Circuit, ValidationResult, LogCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Waves } from 'lucide-react';
 import CircuitComponentView from '@/components/canvas/circuit-component-view';
@@ -22,7 +22,7 @@ interface CanvasProps {
   onAddComponent: (type: 'Resistor' | 'Capacitor' | 'IC', position: { x: number; y: number }) => void;
   onAddConnection: (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }, path: {x:number, y:number}[]) => void;
   onUpdateComponentPosition: (id: string, position: { x: number; y: number }) => void;
-  log: (message: string) => void;
+  log: (message: string, category?: LogCategory) => void;
 }
 
 export default function Canvas({ 
@@ -65,7 +65,7 @@ export default function Canvas({
   };
 
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    log(`handleMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`);
+    log(`handleMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`, 'general');
     if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) return;
 
     if (wiringMode) {
@@ -76,7 +76,7 @@ export default function Canvas({
     if (!isDragging() && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
       handlePanStart(e);
     } else if (e.button === 0) {
-      log('handleMouseDown: Deselecting component');
+      log('handleMouseDown: Deselecting component', 'general');
       onSelectComponent(null);
     }
   };
@@ -99,7 +99,7 @@ export default function Canvas({
     const data = e.dataTransfer.getData('application/json');
     if (!data) return;
     const { type, name } = JSON.parse(data);
-    log(`handleDrop: Dropped item of type '${type}' with name '${name}'`);
+    log(`handleDrop: Dropped item of type '${type}' with name '${name}'`, 'general');
     if (type === 'component') {
       const position = toWorldSpace({ x: e.clientX, y: e.clientY });
       const dims = getComponentDimensions(name as keyof typeof getComponentDimensions);
@@ -120,12 +120,12 @@ export default function Canvas({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-            log('Keydown: Escape pressed');
+            log('Keydown: Escape pressed', 'wiring');
             if (wireStart) {
-                log('Keydown: Cancelling current wire.');
+                log('Keydown: Cancelling current wire.', 'wiring');
                 resetWiring();
             } else if (wiringMode) {
-                log('Keydown: Exiting wiring mode.');
+                log('Keydown: Exiting wiring mode.', 'wiring');
                 setWiringMode(false);
             }
         }

@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useCallback, type MouseEvent } from 'react';
-import type { Circuit } from '@/lib/types';
+import type { Circuit, LogCategory } from '@/lib/types';
 import { getPinAbsolutePosition } from '@/lib/canvas-utils';
 
 interface UseWiringProps {
@@ -9,7 +9,7 @@ interface UseWiringProps {
   toWorldSpace: (coords: { x: number; y: number }) => { x: number; y: number };
   wiringMode: boolean;
   onAddConnection: (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }, path: {x: number, y: number}[]) => void;
-  log: (message: string) => void;
+  log: (message: string, category?: LogCategory) => void;
 }
 
 export function useWiring({
@@ -26,13 +26,13 @@ export function useWiring({
   const resetWiring = useCallback(() => {
     setWireStart(null);
     setWirePath([]);
-    log('Wiring state reset.');
+    log('Wiring state reset.', 'wiring');
   }, [log]);
   
   const handlePinClick = useCallback((e: MouseEvent, componentId: string, pinId: string) => {
-    log(`handlePinClick: compId=${componentId}, pinId=${pinId}`);
+    log(`handlePinClick: compId=${componentId}, pinId=${pinId}`, 'wiring');
     if (!wiringMode) {
-      log('handlePinClick: Not in wiring mode, ignoring.');
+      log('handlePinClick: Not in wiring mode, ignoring.', 'wiring');
       return;
     }
     e.stopPropagation();
@@ -42,13 +42,13 @@ export function useWiring({
     const pinPos = getPinAbsolutePosition(component, pinId);
 
     if (!wireStart) {
-      log('handlePinClick: Starting a new wire.');
+      log('handlePinClick: Starting a new wire.', 'wiring');
       setWireStart({ componentId, pinId });
       setWirePath([pinPos]);
       setCursorPos(pinPos);
-      log(`handlePinClick: wireStart set to { comp: ${componentId}, pin: ${pinId} }, path: ${JSON.stringify([pinPos])}`);
+      log(`handlePinClick: wireStart set to { comp: ${componentId}, pin: ${pinId} }, path: ${JSON.stringify([pinPos])}`, 'wiring');
     } else {
-      log('handlePinClick: Ending a wire.');
+      log('handlePinClick: Ending a wire.', 'wiring');
       if (wireStart.componentId !== componentId) {
         const finalPath = [...wirePath];
         const lastPoint = finalPath[finalPath.length - 1];
@@ -70,10 +70,10 @@ export function useWiring({
           return !( (p.x === prev.x && p.x === next.x) || (p.y === prev.y && p.y === next.y) );
         });
 
-        log(`handlePinClick: Final path: ${JSON.stringify(cleanedPath)}`);
+        log(`handlePinClick: Final path: ${JSON.stringify(cleanedPath)}`, 'wiring');
         onAddConnection(wireStart, { componentId, pinId }, cleanedPath);
       } else {
-        log('handlePinClick: Clicked on same component, cancelling wire.');
+        log('handlePinClick: Clicked on same component, cancelling wire.', 'wiring');
       }
       resetWiring();
     }
@@ -81,7 +81,7 @@ export function useWiring({
 
   const handleCanvasClick = (e: MouseEvent) => {
     if (!wiringMode || !wireStart) return;
-    log('handleCanvasClick: Adding point to wire path.');
+    log('handleCanvasClick: Adding point to wire path.', 'wiring');
 
     const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
     const lastPoint = wirePath[wirePath.length - 1];
@@ -94,7 +94,7 @@ export function useWiring({
         newPoint = { x: lastPoint.x, y: worldPos.y };
     }
     setWirePath(p => [...p, newPoint]);
-    log(`handleCanvasClick: New wire point: { x: ${newPoint.x.toFixed(0)}, y: ${newPoint.y.toFixed(0)} }`);
+    log(`handleCanvasClick: New wire point: { x: ${newPoint.x.toFixed(0)}, y: ${newPoint.y.toFixed(0)} }`, 'wiring');
   };
 
   const handleWiringMouseMove = (e: MouseEvent<HTMLDivElement>) => {

@@ -2,6 +2,14 @@ export type ComponentType = 'Resistor' | 'Capacitor' | 'IC';
 
 export type CheckerType = 'Voltage' | 'Current' | 'Logic' | 'Timing' | 'Connectivity' | 'Custom';
 
+export type LogCategory = 'general' | 'wiring' | 'pan' | 'drag';
+
+export interface LogEntry {
+  timestamp: string;
+  message: string;
+  category: LogCategory;
+}
+
 export interface Pin {
   id: string;
   name: string;

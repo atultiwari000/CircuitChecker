@@ -2,13 +2,15 @@
 
 import { useEffect, useRef } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { LogEntry } from '@/lib/types';
 
 interface DebuggerPanelProps {
-  logs: string[];
+  logs: LogEntry[];
 }
 
 export default function DebuggerPanel({ logs }: DebuggerPanelProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const wiringLogs = logs.filter(log => log.category === 'wiring');
 
   useEffect(() => {
     // This is a bit of a hack to scroll to the bottom.
@@ -19,7 +21,7 @@ export default function DebuggerPanel({ logs }: DebuggerPanelProps) {
         viewport.scrollTop = 0;
       }
     }
-  }, [logs]);
+  }, [wiringLogs]);
 
   return (
     <div className="fixed bottom-0 left-0 w-full h-48 bg-black/80 text-white font-mono text-xs z-[100] p-2 border-t border-gray-700">
@@ -29,9 +31,9 @@ export default function DebuggerPanel({ logs }: DebuggerPanelProps) {
       </div>
       <ScrollArea className="h-full w-full" ref={scrollAreaRef}>
         <div className="flex flex-col-reverse p-2">
-          {logs.map((log, index) => (
+          {wiringLogs.map((log, index) => (
             <div key={index} className="whitespace-pre-wrap py-0.5 border-b border-gray-800">
-              {log}
+              [{log.timestamp}] {log.message}
             </div>
           ))}
         </div>

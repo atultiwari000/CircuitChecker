@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useRef, useCallback, type RefObject } from 'react';
+import { LogCategory } from '@/lib/types';
 
 interface ViewTransform {
   x: number;
@@ -9,7 +10,7 @@ interface ViewTransform {
   scale: number;
 }
 
-export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (message: string) => void, disabled = false) {
+export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (message: string, category?: LogCategory) => void, disabled = false) {
   const [viewTransform, setViewTransform] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef({ x: 0, y: 0 });
@@ -25,7 +26,7 @@ export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (messag
 
   const handlePanStart = (e: React.MouseEvent<HTMLDivElement>) => {
     if (disabled) return;
-    log('handlePanStart: Start panning');
+    log('handlePanStart: Start panning', 'pan');
     setIsPanning(true);
     panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
     if (e.currentTarget) {
@@ -42,7 +43,7 @@ export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (messag
 
   const handlePanEnd = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isPanning) {
-      log('handlePanEnd: End panning');
+      log('handlePanEnd: End panning', 'pan');
       setIsPanning(false);
       if (e.currentTarget) {
         e.currentTarget.style.cursor = 'default';

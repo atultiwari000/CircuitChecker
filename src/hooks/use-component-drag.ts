@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback, type MouseEvent, type RefObject } from 'react';
-import type { Circuit, CircuitComponent } from '@/lib/types';
+import type { Circuit, CircuitComponent, LogCategory } from '@/lib/types';
 import { getComponentDimensions } from '@/lib/canvas-utils';
 
 interface UseComponentDragProps {
@@ -10,7 +10,7 @@ interface UseComponentDragProps {
   onUpdateComponentPosition: (id: string, position: { x: number; y: number }) => void;
   wiringMode: boolean;
   onSelectComponent: (id: string | null) => void;
-  log: (message: string) => void;
+  log: (message: string, category?: LogCategory) => void;
 }
 
 export function useComponentDrag({
@@ -29,9 +29,9 @@ export function useComponentDrag({
   const isDragging = () => !!dragging;
 
   const handleComponentMouseDown = (e: MouseEvent, componentId: string) => {
-    log(`handleComponentMouseDown: id=${componentId}`);
+    log(`handleComponentMouseDown: id=${componentId}`, 'drag');
     if (wiringMode || e.button !== 0 || (e.ctrlKey || e.metaKey)) {
-      log('handleComponentMouseDown: Ignoring due to wiring mode or mouse button.');
+      log('handleComponentMouseDown: Ignoring due to wiring mode or mouse button.', 'drag');
       return;
     }
     
@@ -90,7 +90,7 @@ export function useComponentDrag({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       
-      log(`handleComponentMouseUp: End dragging component ${componentId}`);
+      log(`handleComponentMouseUp: End dragging component ${componentId}`, 'drag');
       if (dragPositions.current[componentId]) {
         onUpdateComponentPosition(componentId, dragPositions.current[componentId]);
       }
@@ -101,7 +101,7 @@ export function useComponentDrag({
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
-    log(`handleComponentMouseDown: Start dragging component ${componentId}`);
+    log(`handleComponentMouseDown: Start dragging component ${componentId}`, 'drag');
   };
 
   return {

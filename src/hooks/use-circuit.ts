@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import type { CircuitComponent, ValidationResult, Circuit, Connection } from '@/lib/types';
+import type { CircuitComponent, ValidationResult, Circuit, Connection, LogEntry, LogCategory } from '@/lib/types';
 import { initialCircuit, componentDefaults } from '@/lib/data';
 
 export function useCircuit() {
@@ -9,11 +9,16 @@ export function useCircuit() {
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(initialCircuit.components[0]?.id || null);
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   const [wiringMode, setWiringMode] = useState(false);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
 
-  const log = useCallback((message: string) => {
+  const log = useCallback((message: string, category: LogCategory = 'general') => {
     const timestamp = new Date().toLocaleTimeString();
-    setDebugLogs(prev => [`[${timestamp}] ${message}`, ...prev].slice(0, 100)); // Keep last 100 logs
+    const newLog: LogEntry = {
+        timestamp,
+        message,
+        category,
+    };
+    setDebugLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
   }, []);
 
   const handleValidate = () => {
@@ -66,7 +71,7 @@ export function useCircuit() {
       ...prev,
       connections: [...prev.connections, newConnection],
     }));
-    log(`Added connection between ${from.componentId} and ${to.componentId}`);
+    log(`Added connection between ${from.componentId} and ${to.componentId}`, 'wiring');
   };
 
   const handleUpdateComponentPosition = (id: string, position: { x: number; y: number }) => {
@@ -93,7 +98,7 @@ export function useCircuit() {
     if (event.key.toLowerCase() === 'w' && !(event.target instanceof HTMLInputElement)) {
       event.preventDefault();
       setWiringMode(prev => {
-        log(`Wiring mode toggled to: ${!prev}`);
+        log(`Wiring mode toggled to: ${!prev}`, 'wiring');
         return !prev;
       });
     }
