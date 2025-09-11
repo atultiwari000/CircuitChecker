@@ -129,20 +129,21 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) return;
 
     if (wiringMode && wireStart && e.button === 0) {
-      const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
-      const lastPoint = wirePath[wirePath.length - 1];
-      
-      const dx = Math.abs(worldPos.x - lastPoint.x);
-      const dy = Math.abs(worldPos.y - lastPoint.y);
-
-      let nextPoint: {x: number, y: number};
-      if (dx > dy) {
-          nextPoint = { x: worldPos.x, y: lastPoint.y };
-      } else {
-          nextPoint = { x: lastPoint.x, y: worldPos.y };
-      }
-      setWirePath(p => [...p, nextPoint]);
-
+        const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
+        const lastPoint = wirePath[wirePath.length - 1];
+        
+        const dx = Math.abs(worldPos.x - lastPoint.x);
+        const dy = Math.abs(worldPos.y - lastPoint.y);
+  
+        let nextPoint: {x: number, y: number};
+        // This logic determines which segment to add (horizontal or vertical)
+        if (dx > dy) {
+            nextPoint = { x: worldPos.x, y: lastPoint.y };
+        } else {
+            nextPoint = { x: lastPoint.x, y: worldPos.y };
+        }
+        setWirePath(p => [...p, nextPoint]);
+  
     } else if (!wiringMode && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
       setIsPanning(true);
       panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
@@ -278,18 +279,17 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     } else {
       // End a wire
       if (wireStart.componentId !== componentId) {
-        const finalPath = [...wirePath];
-        const lastPoint = finalPath[finalPath.length - 1];
-
+        
         const endComponent = circuit.components.find(c => c.id === componentId);
         if(!endComponent) return;
-
         const endPinPos = getPinAbsolutePosition(endComponent, pinId);
 
-        // Snap last segment
+        // Add the last segment snapping to the end pin
+        const finalPath = [...wirePath];
+        const lastPoint = finalPath[finalPath.length - 1];
         const dx = Math.abs(endPinPos.x - lastPoint.x);
         const dy = Math.abs(endPinPos.y - lastPoint.y);
-        
+
         let pathSegment = {};
         if (dx > dy) {
             pathSegment = { x: endPinPos.x, y: lastPoint.y };
