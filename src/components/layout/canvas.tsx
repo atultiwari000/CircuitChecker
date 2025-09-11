@@ -94,7 +94,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const [linking, setLinking] = useState<{ from: { componentId: string, pinId: string }, to: { x: number, y: number } } | null>(null);
-  const [dragging, setDragging] = useState<{ id: string, offset: { x: number, y: number } } | null>(null);
+  const [dragging, setDragging] = useState<{ id: string, offset: { x: number, y: number }, currentPos: {x: number, y: number} } | null>(null);
 
 
   const getValidationStatus = (id: string) => {
@@ -112,10 +112,13 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
 
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === canvasRef.current || e.target === e.currentTarget.firstChild) {
-      setIsPanning(true);
-      panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
-      e.currentTarget.style.cursor = 'grabbing';
-      onSelectComponent(null);
+      if (e.button === 1 || (e.button === 0 && e.ctrlKey)) { // Middle mouse button or Ctrl+Click
+        setIsPanning(true);
+        panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
+        e.currentTarget.style.cursor = 'grabbing';
+      } else if (e.button === 0) {
+        onSelectComponent(null);
+      }
     }
   };
 
@@ -125,23 +128,30 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       const y = e.clientY - panStart.current.y;
       setViewTransform(v => ({...v, x, y}));
     }
+    const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
     if (linking) {
-      const { x, y } = toWorldSpace({ x: e.clientX, y: e.clientY });
-      setLinking(l => l && { ...l, to: { x, y } });
+      setLinking(l => l && { ...l, to: { x: worldPos.x, y: worldPos.y } });
     }
     if (dragging) {
-      const { x, y } = toWorldSpace({ x: e.clientX, y: e.clientY });
-      onUpdateComponentPosition(dragging.id, {
-        x: x - dragging.offset.x,
-        y: y - dragging.offset.y,
-      });
+      setDragging(d => d && ({
+        ...d,
+        currentPos: {
+          x: worldPos.x - d.offset.x,
+          y: worldPos.y - d.offset.y,
+        }
+      }));
     }
   };
 
   const handleMouseUp = (e: MouseEvent<HTMLDivElement>) => {
-    setIsPanning(false);
-    setDragging(null);
-    e.currentTarget.style.cursor = 'default';
+    if (isPanning) {
+        setIsPanning(false);
+        e.currentTarget.style.cursor = 'default';
+    }
+    if (dragging) {
+      onUpdateComponentPosition(dragging.id, dragging.currentPos);
+      setDragging(null);
+    }
     if (linking) {
       setLinking(null);
     }
@@ -193,6 +203,8 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
 
   const handleComponentMouseDown = (e: MouseEvent, componentId: string) => {
     e.stopPropagation();
+    if(e.button !== 0) return;
+
     onSelectComponent(componentId);
     const component = circuit.components.find(c => c.id === componentId);
     if (!component) return;
@@ -204,13 +216,15 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
         x: worldPos.x - component.position.x,
         y: worldPos.y - component.position.y,
       },
+      currentPos: component.position,
     });
   };
 
   const handlePinMouseDown = useCallback((e: MouseEvent, componentId: string, pinId: string) => {
     e.stopPropagation();
-    const { x, y } = toWorldSpace({ x: e.clientX, y: e.clientY });
-    setLinking({ from: { componentId, pinId }, to: { x, y } });
+    if (e.button !== 0) return;
+    const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
+    setLinking({ from: { componentId, pinId }, to: worldPos });
   }, [viewTransform]);
 
   const handlePinMouseUp = useCallback((e: MouseEvent, componentId: string, pinId: string) => {
@@ -220,6 +234,14 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     }
     setLinking(null);
   }, [linking, onAddConnection]);
+
+  const getComponentPosition = (id: string) => {
+    if (dragging?.id === id) {
+      return dragging.currentPos;
+    }
+    return circuit.components.find(c => c.id === id)?.position || { x: 0, y: 0 };
+  }
+
 
   return (
     <div 
@@ -232,23 +254,29 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       onWheel={handleWheel}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
+      style={{ cursor: isPanning ? 'grabbing' : 'default' }}
     >
       <div 
         className="relative w-full h-full"
         style={{ transform: `translate(${viewTransform.x}px, ${viewTransform.y}px) scale(${viewTransform.scale})`, transformOrigin: 'top left' }}
       >
-        {circuit.components.map((comp) => (
-          <CircuitComponentView
-              key={comp.id}
-              component={comp}
-              isSelected={selectedComponentId === comp.id}
-              validationStatus={getValidationStatus(comp.id)}
-              onSelect={onSelectComponent}
-              onPinMouseDown={handlePinMouseDown}
-              onPinMouseUp={handlePinMouseUp}
-              onComponentMouseDown={handleComponentMouseDown}
-          />
-        ))}
+        {circuit.components.map((comp) => {
+          const position = getComponentPosition(comp.id);
+          const componentWithDragPos = {...comp, position };
+
+          return (
+            <CircuitComponentView
+                key={comp.id}
+                component={componentWithDragPos}
+                isSelected={selectedComponentId === comp.id}
+                validationStatus={getValidationStatus(comp.id)}
+                onSelect={onSelectComponent}
+                onPinMouseDown={handlePinMouseDown}
+                onPinMouseUp={handlePinMouseUp}
+                onComponentMouseDown={handleComponentMouseDown}
+            />
+          )
+        })}
         <svg className="absolute top-0 left-0 pointer-events-none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
           <defs>
               <marker id="marker-circle" markerWidth="4" markerHeight="4" refX="2" refY="2">
@@ -261,9 +289,12 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
               const toComponent = circuit.components.find(c => c.id === conn.to.componentId);
 
               if (!fromComponent || !toComponent) return null;
+              
+              const fromPosition = getComponentPosition(fromComponent.id);
+              const toPosition = getComponentPosition(toComponent.id);
 
-              const p1 = getPinAbsolutePosition(fromComponent, conn.from.pinId);
-              const p2 = getPinAbsolutePosition(toComponent, conn.to.pinId);
+              const p1 = getPinAbsolutePosition({...fromComponent, position: fromPosition}, conn.from.pinId);
+              const p2 = getPinAbsolutePosition({...toComponent, position: toPosition}, conn.to.pinId);
               const status = getValidationStatus(conn.id);
 
               const midX = (p1.x + p2.x) / 2;
@@ -292,7 +323,10 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
             {linking && (() => {
                 const fromComponent = circuit.components.find(c => c.id === linking.from.componentId);
                 if (!fromComponent) return null;
-                const p1 = getPinAbsolutePosition(fromComponent, linking.from.pinId);
+                
+                const fromPosition = getComponentPosition(fromComponent.id);
+
+                const p1 = getPinAbsolutePosition({...fromComponent, position: fromPosition}, linking.from.pinId);
                 const p2 = linking.to;
                 const midX = (p1.x + p2.x) / 2;
                 const pathData = `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;

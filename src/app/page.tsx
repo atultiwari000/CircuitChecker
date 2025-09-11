@@ -126,6 +126,15 @@ export default function Home() {
     }));
   };
 
+  const handleUpdateComponentProperties = (id: string, properties: {[key: string]: string | number}) => {
+    setCircuit(prev => ({
+      ...prev,
+      components: prev.components.map(c => 
+        c.id === id ? { ...c, properties: {...c.properties, ...properties} } : c
+      ),
+    }));
+  }
+
   const selectedComponent = circuit.components.find(c => c.id === selectedComponentId);
   const validationFailures = validationResults
     .filter(r => r.status === 'fail' && r.message)
@@ -151,7 +160,11 @@ export default function Home() {
             onUpdateComponentPosition={handleUpdateComponentPosition}
           />
         </main>
-        <PropertiesPanel component={selectedComponent} />
+        <PropertiesPanel 
+          key={selectedComponentId}
+          component={selectedComponent}
+          onUpdateProperties={handleUpdateComponentProperties}
+        />
       </div>
       {validationFailures.length > 0 && (
         <div className="fixed bottom-6 right-6 z-50">

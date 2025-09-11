@@ -1,5 +1,5 @@
 'use client';
-
+import { useState } from 'react';
 import type { CircuitComponent } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,12 +7,32 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
+import { Button } from '../ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 interface PropertiesPanelProps {
   component: CircuitComponent | undefined;
+  onUpdateProperties: (id: string, properties: {[key: string]: string | number}) => void;
 }
 
-export default function PropertiesPanel({ component }: PropertiesPanelProps) {
+export default function PropertiesPanel({ component, onUpdateProperties }: PropertiesPanelProps) {
+    const [localProperties, setLocalProperties] = useState(component?.properties || {});
+    const { toast } = useToast();
+
+    const handlePropertyChange = (key: string, value: string | number) => {
+        setLocalProperties(prev => ({ ...prev, [key]: value }));
+    }
+
+    const handleSave = () => {
+        if (component) {
+            onUpdateProperties(component.id, localProperties);
+            toast({
+                title: "Properties Saved",
+                description: `${component.name} properties have been updated.`,
+            })
+        }
+    }
+
   return (
     <aside className="w-80 flex flex-col border-l bg-card">
       <div className="p-4 border-b">
@@ -38,12 +58,14 @@ export default function PropertiesPanel({ component }: PropertiesPanelProps) {
                         <Label htmlFor={`${component.id}-${key}`}>{key}</Label>
                         <Input
                           id={`${component.id}-${key}`}
-                          defaultValue={value}
+                          value={localProperties[key] ?? value}
+                          onChange={(e) => handlePropertyChange(key, e.target.value)}
                           className="h-8"
                         />
                       </div>
                     ))}
                   </div>
+                  <Button onClick={handleSave} className="mt-4 w-full">Save Properties</Button>
                 </CardContent>
               </Card>
             </TabsContent>
