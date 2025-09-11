@@ -54,6 +54,7 @@ export function useComponentDrag({
     const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
       if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
       animationFrame.current = requestAnimationFrame(() => {
+        if (!dragging) return;
         const newWorldPos = toWorldSpace({ x: moveEvent.clientX, y: moveEvent.clientY });
         
         const canvasEl = (e.target as HTMLElement).closest('.w-full.h-full.overflow-hidden');
@@ -68,12 +69,9 @@ export function useComponentDrag({
         const canvasRight = (canvasRect.width - viewTransform.x) / viewTransform.scale;
         const canvasBottom = (canvasRect.height - viewTransform.y) / viewTransform.scale;
 
-        let newX = newWorldPos.x - (dragPositions.current[componentId] ? (newWorldPos.x - component.position.x - (worldPos.x - component.position.x)) : (worldPos.x - component.position.x));
-        let newY = newWorldPos.y - (dragPositions.current[componentId] ? (newWorldPos.y - component.position.y - (worldPos.y - component.position.y)) : (worldPos.y - component.position.y));
+        let newX = newWorldPos.x - dragging.offset.x;
+        let newY = newWorldPos.y - dragging.offset.y;
 
-        newX = newWorldPos.x - (worldPos.x - component.position.x);
-        newY = newWorldPos.y - (worldPos.y - component.position.y);
-        
         newX = Math.max(canvasLeft, Math.min(newX, canvasRight - compDims.width));
         newY = Math.max(canvasTop, Math.min(newY, canvasBottom - compDims.height));
 
@@ -90,9 +88,9 @@ export function useComponentDrag({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       
-      log(`handleComponentMouseUp: End dragging component ${componentId}`, 'drag');
-      if (dragPositions.current[componentId]) {
-        onUpdateComponentPosition(componentId, dragPositions.current[componentId]);
+      if (dragging && dragPositions.current[dragging.id]) {
+        log(`handleComponentMouseUp: End dragging component ${dragging.id}`, 'drag');
+        onUpdateComponentPosition(dragging.id, dragPositions.current[dragging.id]);
       }
       setDragging(null);
       dragPositions.current = {};
