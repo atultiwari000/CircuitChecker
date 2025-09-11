@@ -29,8 +29,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, de
   const getCursor = () => {
     if (deleteMode) return 'pointer';
     if (moveMode) return 'grab';
-    if (onComponentMouseDown) return 'pointer';
-    return 'default';
+    return 'pointer';
   }
 
   return (
@@ -50,15 +49,12 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, de
       onMouseDown={(e) => {
         // Stop propagation to prevent canvas-level events like deselection or panning
         e.stopPropagation();
+        onSelect(component.id);
         if (deleteMode) return;
         onComponentMouseDown?.(e, component.id);
       }}
     >
       <div
-        onClick={(e) => {
-            e.stopPropagation();
-            onSelect(component.id);
-        }}
         className={cn(
           "relative w-full h-full select-none",
           validationStatus === 'fail' && "animate-pulse"
