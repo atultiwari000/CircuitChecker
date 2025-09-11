@@ -66,12 +66,18 @@ export default function Canvas({
 
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
     log(`handleMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`, 'general');
-    if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) return;
-
-    if (wiringMode) {
-      handleCanvasClick(e);
+    
+    // If we are in wiring mode and a wire has been started, any click on the canvas is for adding a point.
+    if (wiringMode && wireStart) {
+      // Ensure we are clicking on the canvas itself, not a component.
+      if (e.target === canvasRef.current || e.target === e.currentTarget.firstChild) {
+          handleCanvasClick(e);
+      }
       return;
     }
+
+    // If we're not wiring, or haven't started a wire, handle other interactions.
+    if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) return;
 
     if (!isDragging() && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
       handlePanStart(e);
