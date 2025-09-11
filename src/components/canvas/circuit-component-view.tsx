@@ -40,11 +40,8 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
       onMouseDown={(e) => {
         // Stop propagation to prevent canvas-level events like deselection or panning
         e.stopPropagation();
-        onComponentMouseDown?.(e, component.id);
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
         onSelect(component.id);
+        onComponentMouseDown?.(e, component.id);
       }}
     >
       <div
