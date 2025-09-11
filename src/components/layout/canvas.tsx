@@ -1,12 +1,15 @@
 
 'use client';
 
-import { useState, useRef, type MouseEvent, memo, useCallback, useEffect } from 'react';
-import type { Circuit, ValidationResult, CircuitComponent, Pin } from '@/lib/types';
-import { ResistorIcon, CapacitorIcon, IcIcon } from '@/components/icons';
+import { useRef, type MouseEvent, useCallback, useEffect } from 'react';
+import type { Circuit, ValidationResult } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Waves } from 'lucide-react';
-
+import CircuitComponentView from '@/components/canvas/circuit-component-view';
+import { usePanAndZoom } from '@/hooks/use-pan-and-zoom';
+import { useComponentDrag } from '@/hooks/use-component-drag';
+import { useWiring } from '@/hooks/use-wiring';
+import { getPinAbsolutePosition, getComponentDimensions } from '@/lib/canvas-utils';
 
 interface CanvasProps {
   circuit: Circuit;
@@ -21,222 +24,64 @@ interface CanvasProps {
   log: (message: string) => void;
 }
 
-const componentIcons = {
-  Resistor: ResistorIcon,
-  Capacitor: CapacitorIcon,
-  IC: IcIcon,
-};
-
-const componentDimensions = {
-  Resistor: { width: 80, height: 40 },
-  Capacitor: { width: 80, height: 40 },
-  IC: { width: 120, height: 90 },
-};
-
-function getPinAbsolutePosition(component: CircuitComponent, pinId: string): { x: number; y: number } {
-  const pin = component.pins.find(p => p.id === pinId);
-  if (!pin) return { x: 0, y: 0 };
-  return {
-    x: component.position.x + pin.x,
-    y: component.position.y + pin.y,
-  };
-}
-
-const CircuitComponentView = memo(({ component, isSelected, validationStatus, onSelect, onPinClick, onComponentMouseDown }: { component: CircuitComponent, isSelected: boolean, validationStatus: 'pass' | 'fail' | 'unchecked', onSelect: (id: string) => void, onPinClick: (e: MouseEvent, componentId: string, pinId: string) => void, onComponentMouseDown: (e: MouseEvent, componentId: string) => void }) => {
-  const CompIcon = componentIcons[component.type];
-  const dims = componentDimensions[component.type];
-
-  return (
-    <div
-      style={{
-        left: component.position.x,
-        top: component.position.y,
-        width: dims.width,
-        height: dims.height,
-      }}
-      className={cn(
-        "absolute group",
-        isSelected && "z-10",
-        onComponentMouseDown && 'cursor-pointer'
-      )}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(component.id)
-      }}
-      onMouseDown={(e) => onComponentMouseDown?.(e, component.id)}
-    >
-      <div
-        className={cn(
-          "relative w-full h-full select-none",
-          validationStatus === 'fail' && "animate-pulse"
-        )}
-      >
-        <CompIcon 
-          className={cn(
-            "w-full h-full text-foreground/80",
-            isSelected ? "stroke-primary" : "stroke-current",
-            validationStatus === 'fail' && "stroke-destructive",
-            validationStatus === 'pass' && "stroke-green-500",
-          )}
-        />
-        <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs font-semibold select-none">{component.name}</span>
-        
-        {component.pins.map(pin => (
-            <div 
-                key={pin.id} 
-                style={{ left: pin.x, top: pin.y }} 
-                className="absolute -translate-x-1/2 -translate-y-1/2 p-2 cursor-crosshair"
-                onClick={(e) => onPinClick(e, component.id, pin.id)}
-            >
-                <div className="w-2.5 h-2.5 rounded-full bg-muted-foreground group-hover:bg-primary transition-colors" />
-            </div>
-        ))}
-      </div>
-    </div>
-  );
-});
-CircuitComponentView.displayName = 'CircuitComponentView';
-
-export default function Canvas({ circuit, validationResults, selectedComponentId, onSelectComponent, onAddComponent, onAddConnection, onUpdateComponentPosition, wiringMode, setWiringMode, log }: CanvasProps) {
-  const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, scale: 1 });
-  const [isPanning, setIsPanning] = useState(false);
-  const panStart = useRef({ x: 0, y: 0 });
+export default function Canvas({ 
+  circuit, 
+  validationResults, 
+  selectedComponentId, 
+  onSelectComponent, 
+  onAddComponent, 
+  onAddConnection, 
+  onUpdateComponentPosition, 
+  wiringMode, 
+  setWiringMode, 
+  log 
+}: CanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  const [wireStart, setWireStart] = useState<{ componentId: string, pinId: string } | null>(null);
-  const [wirePath, setWirePath] = useState<{x: number, y: number}[]>([]);
-  const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
-  const [nextSegmentDirection, setNextSegmentDirection] = useState<'horizontal' | 'vertical'>('horizontal');
-
-  const [dragging, setDragging] = useState<{ id: string, offset: { x: number, y: number } } | null>(null);
+  const { viewTransform, isPanning, toWorldSpace, panStart, handlePanStart, handlePanMove, handlePanEnd, handleWheel } = usePanAndZoom(canvasRef, log);
   
-  const dragPositions = useRef<{[key:string]: {x: number, y: number}}>({});
+  const { dragging, dragPositions, handleComponentMouseDown, isDragging } = useComponentDrag({
+    circuit,
+    viewTransform,
+    toWorldSpace,
+    onUpdateComponentPosition,
+    wiringMode,
+    onSelectComponent,
+    log
+  });
 
+  const { wireStart, wirePath, cursorPos, handlePinClick, handleWiringMouseMove, resetWiring } = useWiring({
+    circuit,
+    toWorldSpace,
+    wiringMode,
+    onAddConnection,
+    log
+  });
 
   const getValidationStatus = (id: string) => {
     const result = validationResults.find(r => r.targetId === id);
     return result ? result.status : 'unchecked';
   };
 
-  const toWorldSpace = useCallback(({ x, y }: { x: number, y: number }) => {
-    if (!canvasRef.current) return { x: 0, y: 0 };
-    const rect = canvasRef.current.getBoundingClientRect();
-    return {
-      x: (x - rect.left - viewTransform.x) / viewTransform.scale,
-      y: (y - rect.top - viewTransform.y) / viewTransform.scale,
-    };
-  }, [viewTransform]);
-
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
     log(`handleMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`);
     if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) return;
 
-    if (wiringMode && wireStart && e.button === 0) {
-        log('handleMouseDown: In wiring mode, adding point to path');
-        const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
-        const lastPoint = wirePath[wirePath.length - 1];
-        
-        let newPoint: {x: number, y: number};
-        if (nextSegmentDirection === 'horizontal') {
-            newPoint = { x: worldPos.x, y: lastPoint.y };
-            log(`handleMouseDown: New horizontal point: { x: ${newPoint.x}, y: ${newPoint.y} }`);
-            setNextSegmentDirection('vertical');
-        } else {
-            newPoint = { x: lastPoint.x, y: worldPos.y };
-            log(`handleMouseDown: New vertical point: { x: ${newPoint.x}, y: ${newPoint.y} }`);
-            setNextSegmentDirection('horizontal');
-        }
-        setWirePath(p => {
-          const newPath = [...p, newPoint];
-          log(`handleMouseDown: Updated wirePath: ${JSON.stringify(newPath)}`);
-          return newPath;
-        });
-  
-    } else if (!wiringMode && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
-      log('handleMouseDown: Start panning');
-      setIsPanning(true);
-      panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
-      e.currentTarget.style.cursor = 'grabbing';
-    } else if (e.button === 0) {
+    if (!isDragging() && !wiringMode && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
+      handlePanStart(e);
+    } else if (e.button === 0 && !wiringMode) {
       log('handleMouseDown: Deselecting component');
       onSelectComponent(null);
     }
   };
-
+  
   const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
-    setCursorPos(worldPos);
-
     if (isPanning) {
-      const x = e.clientX - panStart.current.x;
-      const y = e.clientY - panStart.current.y;
-      setViewTransform(v => ({...v, x, y}));
-    }
-
-    if (!wiringMode && dragging && canvasRef.current) {
-      const componentBeingDragged = circuit.components.find(c => c.id === dragging.id);
-      if (!componentBeingDragged) return;
-
-      const compDims = componentDimensions[componentBeingDragged.type];
-      const canvasRect = canvasRef.current.getBoundingClientRect();
-
-      const canvasLeft = -viewTransform.x / viewTransform.scale;
-      const canvasTop = -viewTransform.y / viewTransform.scale;
-      const canvasRight = (canvasRect.width - viewTransform.x) / viewTransform.scale;
-      const canvasBottom = (canvasRect.height - viewTransform.y) / viewTransform.scale;
-
-      let newX = worldPos.x - dragging.offset.x;
-      let newY = worldPos.y - dragging.offset.y;
-
-      newX = Math.max(canvasLeft, Math.min(newX, canvasRight - compDims.width));
-      newY = Math.max(canvasTop, Math.min(newY, canvasBottom - compDims.height));
-
-      dragPositions.current[dragging.id] = { x: newX, y: newY };
-      setDragging(d => d ? { ...d } : null);
+      handlePanMove(e);
+    } else if (wiringMode) {
+      handleWiringMouseMove(e);
     }
   };
-
-  const handleMouseUp = (e: MouseEvent<HTMLDivElement>) => {
-    log('handleMouseUp');
-    if (isPanning) {
-        log('handleMouseUp: End panning');
-        setIsPanning(false);
-        e.currentTarget.style.cursor = 'default';
-    }
-    if (dragging) {
-      log(`handleMouseUp: End dragging component ${dragging.id}`);
-      if (dragPositions.current[dragging.id]) {
-        onUpdateComponentPosition(dragging.id, dragPositions.current[dragging.id]);
-      }
-      setDragging(null);
-      dragPositions.current = {};
-    }
-  };
-
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (!canvasRef.current) return;
-    const { clientX, clientY, deltaY } = e;
-    const rect = canvasRef.current.getBoundingClientRect();
-    
-    const mouseX = clientX - rect.left;
-    const mouseY = clientY - rect.top;
-
-    const scaleFactor = 1.1;
-    const newScale = deltaY < 0 ? viewTransform.scale * scaleFactor : viewTransform.scale / scaleFactor;
-    const clampedScale = Math.max(0.2, Math.min(newScale, 3));
-
-    const worldX = (mouseX - viewTransform.x) / viewTransform.scale;
-    const worldY = (mouseY - viewTransform.y) / viewTransform.scale;
-
-    const newX = mouseX - worldX * clampedScale;
-    const newY = mouseY - worldY * clampedScale;
-
-    setViewTransform({
-        x: newX,
-        y: newY,
-        scale: clampedScale,
-    });
-  }
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -251,93 +96,12 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     log(`handleDrop: Dropped item of type '${type}' with name '${name}'`);
     if (type === 'component') {
       const position = toWorldSpace({ x: e.clientX, y: e.clientY });
-      const dims = componentDimensions[name as keyof typeof componentDimensions];
+      const dims = getComponentDimensions(name as keyof typeof getComponentDimensions);
       position.x -= dims.width / 2;
       position.y -= dims.height / 2;
       onAddComponent(name, position);
     }
   };
-
-  const handleComponentMouseDown = (e: MouseEvent, componentId: string) => {
-    log(`handleComponentMouseDown: id=${componentId}`);
-    if(wiringMode || e.button !== 0 || (e.ctrlKey || e.metaKey)) {
-        log('handleComponentMouseDown: Ignoring due to wiring mode or mouse button.');
-        return;
-    }
-    e.stopPropagation();
-
-    onSelectComponent(componentId);
-    const component = circuit.components.find(c => c.id === componentId);
-    if (!component) return;
-
-    const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
-    
-    dragPositions.current[componentId] = component.position;
-    
-    setDragging({
-      id: componentId,
-      offset: {
-        x: worldPos.x - component.position.x,
-        y: worldPos.y - component.position.y,
-      },
-    });
-    log(`handleComponentMouseDown: Start dragging component ${componentId}`);
-  };
-
-  const handlePinClick = useCallback((e: MouseEvent, componentId: string, pinId: string) => {
-    log(`handlePinClick: compId=${componentId}, pinId=${pinId}`);
-    if (!wiringMode) {
-      log('handlePinClick: Not in wiring mode, ignoring.');
-      return;
-    }
-    e.stopPropagation();
-
-    if (!wireStart) {
-      log('handlePinClick: Starting a new wire.');
-      const component = circuit.components.find(c => c.id === componentId);
-      if (!component) return;
-      const startPos = getPinAbsolutePosition(component, pinId);
-      setWireStart({ componentId, pinId });
-      setWirePath([startPos]);
-      setNextSegmentDirection('horizontal'); // Start with horizontal segment
-      log(`handlePinClick: wireStart set to { comp: ${componentId}, pin: ${pinId} }, path: ${JSON.stringify([startPos])}`);
-    } else {
-      log('handlePinClick: Ending a wire.');
-      if (wireStart.componentId !== componentId) {
-        
-        const endComponent = circuit.components.find(c => c.id === componentId);
-        if(!endComponent) return;
-        const endPinPos = getPinAbsolutePosition(endComponent, pinId);
-
-        const finalPath = [...wirePath];
-        const lastPoint = finalPath[finalPath.length - 1];
-
-        if (nextSegmentDirection === 'horizontal') {
-            finalPath.push({ x: endPinPos.x, y: lastPoint.y });
-        } else {
-            finalPath.push({ x: lastPoint.x, y: endPinPos.y });
-        }
-        
-        finalPath.push(endPinPos);
-        log(`handlePinClick: Final path before cleaning: ${JSON.stringify(finalPath)}`);
-
-        const cleanedPath = finalPath.filter((p, i, arr) => {
-          if (i === 0 || i === arr.length -1) return true;
-          const prev = arr[i-1];
-          const next = arr[i+1];
-          return !( (p.x === prev.x && p.x === next.x) || (p.y === prev.y && p.y === next.y) );
-        });
-        
-        log(`handlePinClick: Cleaned path: ${JSON.stringify(cleanedPath)}`);
-        onAddConnection(wireStart, { componentId, pinId }, cleanedPath);
-      } else {
-        log('handlePinClick: Clicked on same component, cancelling wire.');
-      }
-      log('handlePinClick: Resetting wire state.');
-      setWireStart(null);
-      setWirePath([]);
-    }
-  }, [wiringMode, wireStart, wirePath, circuit.components, onAddConnection, nextSegmentDirection, log]);
 
   const getComponentPosition = (id: string) => {
     if (dragging?.id === id && dragPositions.current[id]) {
@@ -353,8 +117,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
             log('Keydown: Escape pressed');
             if (wireStart) {
                 log('Keydown: Cancelling current wire.');
-                setWireStart(null);
-                setWirePath([]);
+                resetWiring();
             } else if (wiringMode) {
                 log('Keydown: Exiting wiring mode.');
                 setWiringMode(false);
@@ -363,7 +126,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [wireStart, wiringMode, setWiringMode, log]);
+  }, [wireStart, wiringMode, setWiringMode, log, resetWiring]);
 
 
   return (
@@ -372,8 +135,8 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       className="w-full h-full overflow-hidden relative bg-grid-slate-100 dark:bg-grid-slate-900"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseUp={handlePanEnd}
+      onMouseLeave={handlePanEnd}
       onWheel={handleWheel}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
@@ -428,8 +191,6 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
 
               let pathData = '';
               if (conn.path && conn.path.length > 0) {
-                 // Adjust saved relative path to current component positions.
-                 // This is a simplified adjustment and might not be perfect for complex path deformations.
                 const pathStartOriginal = conn.path[0];
                 const pathEndOriginal = conn.path[conn.path.length - 1];
                 const dxStart = p1.x - pathStartOriginal.x;
@@ -437,7 +198,6 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
                 const dxEnd = p2.x - pathEndOriginal.x;
                 const dyEnd = p2.y - pathEndOriginal.y;
                 
-                // We'll interpolate the translation difference along the path.
                 const adjustedPath = conn.path.map((p, i, arr) => {
                     const progress = arr.length > 1 ? i / (arr.length - 1) : 0;
                     const dx = dxStart * (1 - progress) + dxEnd * progress;
@@ -450,7 +210,6 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
                     pathData += ` L ${adjustedPath[i].x} ${adjustedPath[i].y}`;
                 }
               } else {
-                 // Fallback for old connections without a path or if something goes wrong.
                  const midX = (p1.x + p2.x) / 2;
                  pathData = `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
               }
@@ -482,17 +241,17 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
                     pathString += ` L ${wirePath[i].x} ${wirePath[i].y}`;
                 }
 
-                // Draw live segment to cursor
                 const lastPoint = wirePath[wirePath.length - 1];
-                if (nextSegmentDirection === 'horizontal') {
-                    pathString += ` L ${cursorPos.x} ${lastPoint.y}`;
+                let liveSegment = '';
+                if (Math.abs(cursorPos.x - lastPoint.x) > Math.abs(cursorPos.y - lastPoint.y)) {
+                    liveSegment = `L ${cursorPos.x} ${lastPoint.y}`;
                 } else {
-                    pathString += ` L ${lastPoint.x} ${cursorPos.y}`;
+                    liveSegment = `L ${lastPoint.x} ${cursorPos.y}`;
                 }
                 
                 return (
                     <path
-                        d={pathString}
+                        d={pathString + liveSegment}
                         className="fill-none stroke-2 stroke-primary/70"
                         style={{strokeDasharray: '4 4'}}
                     />

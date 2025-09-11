@@ -17,6 +17,56 @@ export const checkerComponents: { name: CheckerType; icon: React.FC<any> }[] = [
   { name: 'Custom', icon: PencilRuler },
 ];
 
+export const componentDefaults = {
+  Resistor: {
+    name: 'Resistor',
+    type: 'Resistor',
+    properties: { 'Resistance (Ω)': 1000, 'Power (W)': 0.25 },
+    pins: [
+      { id: 'p1', name: '1', x: 0, y: 20 },
+      { id: 'p2', name: '2', x: 80, y: 20 },
+    ],
+    dataset: {
+      'Part Number': 'Generic',
+      'Manufacturer': 'Unknown',
+      'Tolerance': '5%',
+    },
+  },
+  Capacitor: {
+    name: 'Capacitor',
+    type: 'Capacitor',
+    properties: { 'Capacitance (uF)': 1, 'Voltage Rating (V)': 16 },
+    pins: [
+      { id: 'p1', name: '1', x: 0, y: 20 },
+      { id: 'p2', name: '2', x: 80, y: 20 },
+    ],
+    dataset: {
+      'Part Number': 'Generic',
+      'Manufacturer': 'Unknown',
+      'Dielectric': 'Ceramic',
+    },
+  },
+  IC: {
+    name: 'IC',
+    type: 'IC',
+    properties: { 'Logic Type': 'Generic', 'Voltage (V)': 5 },
+    pins: [
+      { id: 'p1', name: '1', x: 0, y: 15 },
+      { id: 'p2', name: '2', x: 0, y: 45 },
+      { id: 'p3', name: '3', x: 0, y: 75 },
+      { id: 'p4', name: '4', x: 120, y: 15 },
+      { id: 'p5', name: '5', x: 120, y: 45 },
+      { id: 'p6', name: '6', x: 120, y: 75 },
+    ],
+    dataset: {
+      'Part Number': 'Generic',
+      'Manufacturer': 'Unknown',
+      'Package': 'DIP',
+    },
+  },
+};
+
+
 const components: CircuitComponent[] = [
   {
     id: 'ic-1',
