@@ -68,7 +68,7 @@ export default function Canvas({
     log(`CanvasMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`, 'general');
     
     if (wiringMode && wireStart) {
-      log(`CanvasMouseDown: In wiring mode with wire started. Target is canvas: ${e.target === canvasRef.current}`, 'wiring');
+      log(`CanvasMouseDown: In wiring mode with wire started. Target is canvas or child: ${e.target === canvasRef.current || e.target === e.currentTarget.firstChild}`, 'wiring');
       if (e.target === canvasRef.current || e.target === e.currentTarget.firstChild) {
           log(`CanvasMouseDown: Calling handleCanvasClick.`, 'wiring');
           handleCanvasClick(e);
