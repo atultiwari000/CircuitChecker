@@ -39,7 +39,6 @@ export function useComponentDrag({
       return;
     }
     
-    onSelectComponent(componentId);
     const component = circuit.components.find(c => c.id === componentId);
     if (!component) {
       log(`ComponentMouseDown: Component with id=${componentId} not found.`, 'drag');

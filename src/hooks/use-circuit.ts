@@ -9,17 +9,26 @@ export function useCircuit() {
   const [selectedComponentId, setSelectedComponentId] = useState<string | null>(initialCircuit.components[0]?.id || null);
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   const [wiringMode, setWiringMode] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
   const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
 
   const log = useCallback((message: string, category: LogCategory = 'general') => {
-    const timestamp = new Date().toLocaleTimeString();
-    const newLog: LogEntry = {
-        timestamp,
-        message,
-        category,
-    };
-    setDebugLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
+    // const timestamp = new Date().toLocaleTimeString();
+    // const newLog: LogEntry = {
+    //     timestamp,
+    //     message,
+    //     category,
+    // };
+    // setDebugLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
   }, []);
+  
+  useEffect(() => {
+    if (deleteMode) setWiringMode(false);
+  }, [deleteMode]);
+
+  useEffect(() => {
+    if (wiringMode) setDeleteMode(false);
+  }, [wiringMode]);
 
   const handleValidate = () => {
     log('handleValidate: Triggered', 'general');
@@ -96,6 +105,27 @@ export function useCircuit() {
     log(`Updated properties for component ${id}`, 'general');
   };
 
+  const handleDeleteComponent = (id: string) => {
+    setCircuit(prev => {
+        const newComponents = prev.components.filter(c => c.id !== id);
+        const newConnections = prev.connections.filter(conn => conn.from.componentId !== id && conn.to.componentId !== id);
+        return { components: newComponents, connections: newConnections };
+    });
+    if (selectedComponentId === id) {
+        setSelectedComponentId(null);
+    }
+    log(`Deleted component ${id}`, 'general');
+  }
+
+  const handleDeleteConnection = (id: string) => {
+      setCircuit(prev => ({
+          ...prev,
+          connections: prev.connections.filter(c => c.id !== id),
+      }));
+      log(`Deleted connection ${id}`, 'general');
+  }
+
+
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key.toLowerCase() === 'w' && !(event.target instanceof HTMLInputElement)) {
       event.preventDefault();
@@ -104,6 +134,14 @@ export function useCircuit() {
         log(`Toggling wiring mode to: ${newState}`, 'wiring');
         return newState;
       });
+    }
+     if (event.key.toLowerCase() === 'd' && !(event.target instanceof HTMLInputElement)) {
+      event.preventDefault();
+      setDeleteMode(prev => !prev);
+    }
+    if (event.key === 'Escape') {
+      setWiringMode(false);
+      setDeleteMode(false);
     }
   }, [log]);
 
@@ -124,6 +162,8 @@ export function useCircuit() {
     setValidationResults,
     wiringMode,
     setWiringMode,
+    deleteMode,
+    setDeleteMode,
     debugLogs,
     setDebugLogs,
     log,
@@ -132,6 +172,8 @@ export function useCircuit() {
     handleAddComponent,
     handleAddConnection,
     handleUpdateComponentPosition,
-    handleUpdateComponentProperties
+    handleUpdateComponentProperties,
+    handleDeleteComponent,
+    handleDeleteConnection,
   };
 }

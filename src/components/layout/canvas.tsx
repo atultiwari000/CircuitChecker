@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useRef, type MouseEvent, useCallback, useEffect } from 'react';
+import { useRef, type MouseEvent, useCallback, useEffect, useState } from 'react';
 import type { Circuit, ValidationResult, LogCategory } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Waves } from 'lucide-react';
+import { Waves, Scissors } from 'lucide-react';
 import CircuitComponentView from '@/components/canvas/circuit-component-view';
 import { usePanAndZoom } from '@/hooks/use-pan-and-zoom';
 import { useComponentDrag } from '@/hooks/use-component-drag';
@@ -18,10 +18,13 @@ interface CanvasProps {
   selectedComponentId: string | null;
   wiringMode: boolean;
   setWiringMode: (mode: boolean) => void;
+  deleteMode: boolean;
   onSelectComponent: (id: string | null) => void;
   onAddComponent: (type: 'Resistor' | 'Capacitor' | 'IC', position: { x: number; y: number }) => void;
   onAddConnection: (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }, path: {x:number, y:number}[]) => void;
   onUpdateComponentPosition: (id: string, position: { x: number; y: number }) => void;
+  onDeleteComponent: (id: string) => void;
+  onDeleteConnection: (id: string) => void;
   log: (message: string, category?: LogCategory) => void;
 }
 
@@ -32,21 +35,25 @@ export default function Canvas({
   onSelectComponent, 
   onAddComponent, 
   onAddConnection, 
-  onUpdateComponentPosition, 
+  onUpdateComponentPosition,
+  onDeleteComponent,
+  onDeleteConnection,
   wiringMode, 
-  setWiringMode, 
+  setWiringMode,
+  deleteMode,
   log 
 }: CanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [hoveredConnection, setHoveredConnection] = useState<string | null>(null);
 
-  const { viewTransform, isPanning, toWorldSpace, panStart, handlePanStart, handlePanMove, handlePanEnd, handleWheel } = usePanAndZoom(canvasRef, log, wiringMode);
+  const { viewTransform, isPanning, toWorldSpace, handlePanStart, handlePanMove, handlePanEnd, handleWheel } = usePanAndZoom(canvasRef, log, wiringMode || deleteMode);
   
   const { dragging, dragPositions, handleComponentMouseDown, isDragging } = useComponentDrag({
     circuit,
     viewTransform,
     toWorldSpace,
     onUpdateComponentPosition,
-    wiringMode,
+    wiringMode: wiringMode || deleteMode,
     onSelectComponent,
     log
   });
@@ -67,24 +74,23 @@ export default function Canvas({
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
     log(`CanvasMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`, 'general');
     
-    // If we are in wiring mode and a wire has been started, any click on the canvas should add a point.
+    if (deleteMode) return;
+
     if (wiringMode && wireStart) {
       log(`CanvasMouseDown: In wiring mode with wire started. Calling handleCanvasClick.`, 'wiring');
       handleCanvasClick(e);
       return;
     }
 
-    // Stop if the click is on a component or pin, as those have their own handlers.
     if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) {
         log(`CanvasMouseDown: Click was not on canvas background. Ignoring.`, 'general');
         return;
     }
     
-    // Handle panning
     if (!isDragging() && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
       log(`CanvasMouseDown: Starting pan.`, 'pan');
       handlePanStart(e);
-    } else if (e.button === 0) { // Handle deselection
+    } else if (e.button === 0) { 
       log('CanvasMouseDown: Deselecting component.', 'general');
       onSelectComponent(null);
     }
@@ -127,10 +133,31 @@ export default function Canvas({
     return component ? component.position : { x: 0, y: 0 };
   }
   
+  const handleComponentClick = (id: string) => {
+    if (deleteMode) {
+      onDeleteComponent(id);
+    } else {
+      onSelectComponent(id);
+    }
+  }
+
+  const handleConnectionClick = (id: string) => {
+    if (deleteMode) {
+      onDeleteConnection(id);
+    }
+  }
+
+  const getCursor = () => {
+    if (isPanning) return 'grabbing';
+    if (wiringMode) return 'crosshair';
+    if (deleteMode) return 'url(/scissors.svg) 12 12, auto';
+    return 'default';
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-            log('Keydown: Escape pressed', 'wiring');
+            log('Keydown: Escape pressed', 'general');
             if (wireStart) {
                 log('Keydown: Cancelling current wire.', 'wiring');
                 resetWiring();
@@ -156,18 +183,16 @@ export default function Canvas({
       onWheel={handleWheel}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      style={{ cursor: isPanning ? 'grabbing' : wiringMode ? 'crosshair' : 'default', userSelect: 'none' }}
+      style={{ cursor: getCursor(), userSelect: 'none' }}
     >
-      {wiringMode && (
-          <>
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 bg-primary/80 text-primary-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-2">
-              <Waves className="h-4 w-4" />
-              WIRING MODE
-              <span className="text-primary-foreground/70 font-mono">(ESC to exit)</span>
-            </div>
-            <WiringRuler worldCursorPos={cursorPos} viewTransform={viewTransform} />
-          </>
+      {(wiringMode || deleteMode) && (
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 bg-primary/80 text-primary-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-2">
+            {wiringMode ? <Waves className="h-4 w-4" /> : <Scissors className="h-4 w-4" />}
+            {wiringMode ? 'WIRING MODE' : 'DELETE MODE'}
+            <span className="text-primary-foreground/70 font-mono">(ESC to exit)</span>
+          </div>
       )}
+      {wiringMode && <WiringRuler worldCursorPos={cursorPos} viewTransform={viewTransform} />}
       <div 
         className="relative w-full h-full"
         style={{ transform: `translate(${viewTransform.x}px, ${viewTransform.y}px) scale(${viewTransform.scale})`, transformOrigin: 'top left' }}
@@ -182,9 +207,10 @@ export default function Canvas({
                 component={componentWithLivePos}
                 isSelected={selectedComponentId === comp.id}
                 validationStatus={getValidationStatus(comp.id)}
-                onSelect={onSelectComponent}
+                onSelect={handleComponentClick}
                 onPinClick={handlePinClick}
                 onComponentMouseDown={handleComponentMouseDown}
+                deleteMode={deleteMode}
             />
           )
         })}
@@ -194,7 +220,7 @@ export default function Canvas({
                   <circle cx="2" cy="2" r="1.5" className="fill-muted-foreground" />
               </marker>
           </defs>
-          <g>
+          <g onMouseLeave={() => setHoveredConnection(null)}>
             {circuit.connections.map(conn => {
               const fromComponent = circuit.components.find(c => c.id === conn.from.componentId);
               const toComponent = circuit.components.find(c => c.id === conn.to.componentId);
@@ -233,9 +259,15 @@ export default function Canvas({
                  pathData = `M ${p1.x} ${p1.y} C ${midX} ${p1.y}, ${midX} ${p2.y}, ${p2.x} ${p2.y}`;
               }
 
+              const isHovered = deleteMode && hoveredConnection === conn.id;
 
               return (
-                <g key={conn.id}>
+                <g 
+                  key={conn.id} 
+                  onMouseEnter={() => deleteMode && setHoveredConnection(conn.id)}
+                  onClick={() => handleConnectionClick(conn.id)}
+                  className={cn(deleteMode && "pointer-events-auto cursor-pointer")}
+                >
                   <path
                     d={pathData}
                     className={cn(
@@ -243,6 +275,7 @@ export default function Canvas({
                       status === 'unchecked' && "stroke-muted-foreground/60",
                       status === 'pass' && "stroke-green-500",
                       status === 'fail' && "stroke-destructive",
+                      isHovered && "stroke-destructive stroke-[4px]"
                     )}
                     markerStart="url(#marker-circle)"
                     markerEnd="url(#marker-circle)"

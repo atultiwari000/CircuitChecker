@@ -23,8 +23,12 @@ export default function Home() {
     handleAddConnection,
     handleUpdateComponentPosition,
     handleUpdateComponentProperties,
+    handleDeleteComponent,
+    handleDeleteConnection,
     wiringMode,
     setWiringMode,
+    deleteMode,
+    setDeleteMode,
     log,
     debugLogs,
   } = useCircuit();
@@ -44,6 +48,8 @@ export default function Home() {
         onValidate={handleValidate} 
         onReset={handleReset}
         hasValidationResults={validationResults.length > 0}
+        deleteMode={deleteMode}
+        onToggleDeleteMode={() => setDeleteMode(prev => !prev)}
       />
       <div className="flex flex-1 border-t overflow-hidden">
         {showLibrary && <ComponentLibrary />}
@@ -61,8 +67,11 @@ export default function Home() {
             onAddComponent={handleAddComponent}
             onAddConnection={handleAddConnection}
             onUpdateComponentPosition={handleUpdateComponentPosition}
+            onDeleteComponent={handleDeleteComponent}
+            onDeleteConnection={handleDeleteConnection}
             wiringMode={wiringMode}
             setWiringMode={setWiringMode}
+            deleteMode={deleteMode}
             log={log}
           />
            <div className="absolute top-2 right-2 z-10">

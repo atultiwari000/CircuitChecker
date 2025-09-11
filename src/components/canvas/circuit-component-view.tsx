@@ -15,14 +15,21 @@ interface CircuitComponentViewProps {
     component: CircuitComponent;
     isSelected: boolean;
     validationStatus: 'pass' | 'fail' | 'unchecked';
+    deleteMode: boolean;
     onSelect: (id: string) => void;
     onPinClick: (e: MouseEvent, componentId: string, pinId: string) => void;
     onComponentMouseDown: (e: MouseEvent, componentId: string) => void;
 }
 
-const CircuitComponentView = memo(({ component, isSelected, validationStatus, onSelect, onPinClick, onComponentMouseDown }: CircuitComponentViewProps) => {
+const CircuitComponentView = memo(({ component, isSelected, validationStatus, deleteMode, onSelect, onPinClick, onComponentMouseDown }: CircuitComponentViewProps) => {
   const CompIcon = componentIcons[component.type];
   const dims = getComponentDimensions(component.type);
+
+  const getCursor = () => {
+    if (deleteMode) return 'pointer';
+    if (onComponentMouseDown) return 'pointer';
+    return 'default';
+  }
 
   return (
     <div
@@ -31,16 +38,21 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
         top: component.position.y,
         width: dims.width,
         height: dims.height,
+        cursor: getCursor()
       }}
       className={cn(
         "absolute group",
         isSelected && "z-10",
-        onComponentMouseDown && 'cursor-pointer'
+        deleteMode && "hover:opacity-70 transition-opacity",
       )}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(component.id);
+      }}
       onMouseDown={(e) => {
         // Stop propagation to prevent canvas-level events like deselection or panning
         e.stopPropagation();
-        onSelect(component.id);
+        if (deleteMode) return;
         onComponentMouseDown?.(e, component.id);
       }}
     >
@@ -56,6 +68,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
             isSelected ? "stroke-primary" : "stroke-current",
             validationStatus === 'fail' && "stroke-destructive",
             validationStatus === 'pass' && "stroke-green-500",
+            deleteMode && "group-hover:stroke-destructive"
           )}
         />
         <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs font-semibold select-none">{component.name}</span>
