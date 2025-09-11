@@ -126,31 +126,29 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
   }, [viewTransform]);
 
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.target === canvasRef.current || e.target === e.currentTarget.firstChild) {
-      if (wiringMode && wireStart && e.button === 0) {
-        // Add a new point to the wire path
-        const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
-        const lastPoint = wirePath[wirePath.length - 1];
-        
-        // Snap to horizontal or vertical
-        const dx = Math.abs(worldPos.x - lastPoint.x);
-        const dy = Math.abs(worldPos.y - lastPoint.y);
+    if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) return;
 
-        let nextPoint: {x: number, y: number};
-        if (dx > dy) {
-            nextPoint = { x: worldPos.x, y: lastPoint.y };
-        } else {
-            nextPoint = { x: lastPoint.x, y: worldPos.y };
-        }
-        setWirePath(p => [...p, nextPoint]);
+    if (wiringMode && wireStart && e.button === 0) {
+      const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
+      const lastPoint = wirePath[wirePath.length - 1];
+      
+      const dx = Math.abs(worldPos.x - lastPoint.x);
+      const dy = Math.abs(worldPos.y - lastPoint.y);
 
-      } else if (!wiringMode && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
-        setIsPanning(true);
-        panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
-        e.currentTarget.style.cursor = 'grabbing';
-      } else if (e.button === 0) {
-        onSelectComponent(null);
+      let nextPoint: {x: number, y: number};
+      if (dx > dy) {
+          nextPoint = { x: worldPos.x, y: lastPoint.y };
+      } else {
+          nextPoint = { x: lastPoint.x, y: worldPos.y };
       }
+      setWirePath(p => [...p, nextPoint]);
+
+    } else if (!wiringMode && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
+      setIsPanning(true);
+      panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
+      e.currentTarget.style.cursor = 'grabbing';
+    } else if (e.button === 0) {
+      onSelectComponent(null);
     }
   };
 
@@ -291,10 +289,17 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
         // Snap last segment
         const dx = Math.abs(endPinPos.x - lastPoint.x);
         const dy = Math.abs(endPinPos.y - lastPoint.y);
+        
+        let pathSegment = {};
         if (dx > dy) {
-            finalPath.push({ x: endPinPos.x, y: lastPoint.y });
+            pathSegment = { x: endPinPos.x, y: lastPoint.y };
         } else {
-            finalPath.push({ x: lastPoint.x, y: endPinPos.y });
+            pathSegment = { x: lastPoint.x, y: endPinPos.y };
+        }
+        
+        // Add the segment only if it's different from the last point
+        if (JSON.stringify(pathSegment) !== JSON.stringify(lastPoint)) {
+          finalPath.push(pathSegment as {x: number, y: number});
         }
         finalPath.push(endPinPos);
 
@@ -410,7 +415,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
                 
                 // We'll interpolate the translation difference along the path.
                 const adjustedPath = conn.path.map((p, i, arr) => {
-                    const progress = i / (arr.length - 1);
+                    const progress = arr.length > 1 ? i / (arr.length - 1) : 0;
                     const dx = dxStart * (1 - progress) + dxEnd * progress;
                     const dy = dyStart * (1 - progress) + dyEnd * progress;
                     return { x: p.x + dx, y: p.y + dy };
@@ -477,3 +482,5 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     </div>
   );
 }
+
+    
