@@ -1,39 +1,33 @@
 'use client';
-import { useState, useRef, useEffect, useCallback, type MouseEvent, type RefObject } from 'react';
-import type { Circuit, CircuitComponent, LogCategory } from '@/lib/types';
-import { getComponentDimensions } from '@/lib/canvas-utils';
+import { useState, useRef, useEffect, useCallback, type MouseEvent } from 'react';
+import type { Circuit, LogCategory } from '@/lib/types';
 
 interface UseComponentDragProps {
   circuit: Circuit;
-  viewTransform: { x: number; y: number; scale: number };
   toWorldSpace: (coords: { x: number; y: number; }) => { x: number; y: number; };
   onUpdateComponentPosition: (id: string, position: { x: number; y: number; }) => void;
   moveMode: boolean;
   wiringMode: boolean;
-  onSelectComponent: (id: string | null) => void;
   log: (message: string, category?: LogCategory) => void;
 }
 
 export function useComponentDrag({
   circuit,
-  viewTransform,
   toWorldSpace,
   onUpdateComponentPosition,
   moveMode,
   wiringMode,
-  onSelectComponent,
   log,
 }: UseComponentDragProps) {
   const [dragging, setDragging] = useState<{ id: string, offset: { x: number, y: number } } | null>(null);
   const dragPositions = useRef<{ [key: string]: { x: number, y: number } }>({});
-  const animationFrame = useRef<number>();
-
+  
   const isDragging = () => !!dragging;
 
   const handleComponentMouseDown = (e: MouseEvent, componentId: string) => {
-    log(`ComponentMouseDown: id=${componentId}, button=${e.button}, moveMode=${moveMode}`, 'drag');
+    log(`ComponentMouseDown: id=${componentId}, button=${e.button}, moveMode=${moveMode}, wiringMode=${wiringMode}`, 'drag');
     if (!moveMode || wiringMode) {
-      log(`ComponentMouseDown: Aborting, moveMode=${moveMode}, wiringMode=${wiringMode}.`, 'drag');
+      log(`ComponentMouseDown: Aborting, not in move mode or wiring is active.`, 'drag');
       return;
     }
     if (e.button !== 0 || (e.ctrlKey || e.metaKey)) {
@@ -55,62 +49,50 @@ export function useComponentDrag({
       x: worldPos.x - component.position.x,
       y: worldPos.y - component.position.y,
     };
-
     log(`ComponentMouseDown: Start dragging component ${componentId} with offset {x:${offset.x.toFixed(2)}, y:${offset.y.toFixed(2)}}`, 'drag');
-
-    const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
-      if (animationFrame.current) {
-          cancelAnimationFrame(animationFrame.current);
-      }
-      animationFrame.current = requestAnimationFrame(() => {
-        setDragging(d => {
-            if (!d) return null;
-            const newWorldPos = toWorldSpace({ x: moveEvent.clientX, y: moveEvent.clientY });
-            const newX = newWorldPos.x - d.offset.x;
-            const newY = newWorldPos.y - d.offset.y;
-            dragPositions.current[d.id] = { x: newX, y: newY };
-            log(`DragMove: New live position for ${d.id}: {x:${newX.toFixed(2)}, y:${newY.toFixed(2)}}`, 'drag');
-            // Force re-render by creating a new object
-            return { ...d };
-        });
-      });
-    };
-
-    const handleMouseUp = (upEvent: globalThis.MouseEvent) => {
-      log(`ComponentMouseUp: Drag ended for component.`, 'drag');
-      if (animationFrame.current) {
-        cancelAnimationFrame(animationFrame.current);
-      }
-      
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      
-      setDragging(d => {
-        if (d && dragPositions.current[d.id]) {
-            const finalPosition = dragPositions.current[d.id];
-            log(`ComponentMouseUp: Calling onUpdateComponentPosition for ${d.id} with final position {x:${finalPosition.x.toFixed(2)}, y:${finalPosition.y.toFixed(2)}}`, 'drag');
-            onUpdateComponentPosition(d.id, finalPosition);
-        } else {
-            log(`ComponentMouseUp: Drag ended but no component was being tracked.`, 'drag');
-        }
-        return null;
-      });
-
-      dragPositions.current = {};
-    };
     
     setDragging({ id: componentId, offset });
+  };
+  
+  useEffect(() => {
+    if (!dragging) return;
+
+    const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
+        const newWorldPos = toWorldSpace({ x: moveEvent.clientX, y: moveEvent.clientY });
+        const newX = newWorldPos.x - dragging.offset.x;
+        const newY = newWorldPos.y - dragging.offset.y;
+        dragPositions.current[dragging.id] = { x: newX, y: newY };
+        log(`DragMove: New live position for ${dragging.id}: {x:${newX.toFixed(2)}, y:${newY.toFixed(2)}}`, 'drag');
+        
+        // This is a bit of a trick to force a re-render in the parent component
+        // by making it seem like the state is changing, even though the reference is the same.
+        // It's needed because we are updating a ref (dragPositions) but need the canvas to know.
+        setDragging(d => ({ ...d! }));
+    };
+
+    const handleMouseUp = () => {
+      log(`ComponentMouseUp: Drag ended for component.`, 'drag');
+      if (dragPositions.current[dragging.id]) {
+        const finalPosition = dragPositions.current[dragging.id];
+        log(`ComponentMouseUp: Calling onUpdateComponentPosition for ${dragging.id} with final position {x:${finalPosition.x.toFixed(2)}, y:${finalPosition.y.toFixed(2)}}`, 'drag');
+        onUpdateComponentPosition(dragging.id, finalPosition);
+      } else {
+        log(`ComponentMouseUp: Drag ended but no component was being tracked.`, 'drag');
+      }
+      dragPositions.current = {};
+      setDragging(null);
+    };
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  };
 
-  useEffect(() => {
     return () => {
-      if (animationFrame.current) {
-        cancelAnimationFrame(animationFrame.current);
-      }
+      log('Cleanup: Removing drag listeners.', 'drag');
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, [dragging, onUpdateComponentPosition, toWorldSpace, log]);
+
 
   return {
     dragging,
