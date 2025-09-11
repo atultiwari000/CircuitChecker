@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, type MouseEvent, useCallback, useEffect, useState } from 'react';
-import type { Circuit, ValidationResult, LogCategory } from '@/lib/types';
+import type { Circuit, ValidationResult } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Waves, Scissors, Move } from 'lucide-react';
 import CircuitComponentView from '@/components/canvas/circuit-component-view';
@@ -25,7 +25,6 @@ interface CanvasProps {
   onUpdateComponentPosition: (id: string, position: { x: number; y: number }) => void;
   onDeleteComponent: (id: string) => void;
   onDeleteConnection: (id: string) => void;
-  log: (message: string, category?: LogCategory) => void;
 }
 
 export default function Canvas({ 
@@ -42,22 +41,18 @@ export default function Canvas({
   setWiringMode,
   deleteMode,
   moveMode,
-  log 
 }: CanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [hoveredConnection, setHoveredConnection] = useState<string | null>(null);
 
-  const { viewTransform, isPanning, toWorldSpace, handlePanStart, handlePanMove, handlePanEnd, handleWheel } = usePanAndZoom(canvasRef, log, wiringMode || deleteMode || moveMode);
+  const { viewTransform, isPanning, toWorldSpace, handlePanStart, handlePanMove, handlePanEnd, handleWheel } = usePanAndZoom(canvasRef, wiringMode || deleteMode || moveMode);
   
   const { dragging, dragPositions, handleComponentMouseDown, isDragging } = useComponentDrag({
     circuit,
-    viewTransform,
     toWorldSpace,
     onUpdateComponentPosition,
     moveMode,
     wiringMode,
-    onSelectComponent,
-    log
   });
 
   const { wireStart, wirePath, cursorPos, handlePinClick, handleCanvasClick, handleWiringMouseMove, resetWiring } = useWiring({
@@ -65,7 +60,6 @@ export default function Canvas({
     toWorldSpace,
     wiringMode,
     onAddConnection,
-    log
   });
 
   const getValidationStatus = (id: string) => {
@@ -78,13 +72,8 @@ export default function Canvas({
       handleCanvasClick(e);
       return;
     }
-
-    const targetIsCanvas = e.target === canvasRef.current || e.target === e.currentTarget.firstElementChild;
-    if (!targetIsCanvas) {
-        return;
-    }
     
-    if (!isDragging() && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
+    if (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey))) {
       handlePanStart(e);
     } else if (e.button === 0 && !moveMode && !deleteMode && !wiringMode) { 
       onSelectComponent(null);

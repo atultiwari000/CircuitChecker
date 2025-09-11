@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import type { CircuitComponent, ValidationResult, Circuit, Connection, LogEntry, LogCategory } from '@/lib/types';
+import type { CircuitComponent, ValidationResult, Circuit, Connection } from '@/lib/types';
 import { initialCircuit, componentDefaults } from '@/lib/data';
 
 export function useCircuit() {
@@ -11,18 +11,7 @@ export function useCircuit() {
   const [wiringMode, setWiringMode] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
   const [moveMode, setMoveMode] = useState(false);
-  const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
 
-  const log = useCallback((message: string, category: LogCategory = 'general') => {
-    // const timestamp = new Date().toLocaleTimeString();
-    // const newLog: LogEntry = {
-    //     timestamp,
-    //     message,
-    //     category,
-    // };
-    // setDebugLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
-  }, []);
-  
   useEffect(() => {
     if (deleteMode) {
         setWiringMode(false);
@@ -175,9 +164,6 @@ export function useCircuit() {
     setDeleteMode,
     moveMode,
     setMoveMode,
-    debugLogs,
-    setDebugLogs,
-    log,
     handleValidate,
     handleReset,
     handleAddComponent,
