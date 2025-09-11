@@ -51,7 +51,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
         height: dims.height,
       }}
       className={cn(
-        "absolute cursor-pointer transition-all duration-200 group",
+        "absolute cursor-pointer group",
         isSelected && "z-10"
       )}
       onClick={(e) => {
@@ -68,7 +68,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
       >
         <CompIcon 
           className={cn(
-            "w-full h-full text-foreground/80 transition-all",
+            "w-full h-full text-foreground/80 transition-colors",
             isSelected ? "stroke-primary" : "stroke-current",
             validationStatus === 'fail' && "stroke-destructive",
             validationStatus === 'pass' && "stroke-green-500",
