@@ -17,7 +17,7 @@ interface CircuitComponentViewProps {
     validationStatus: 'pass' | 'fail' | 'unchecked';
     deleteMode: boolean;
     moveMode: boolean;
-    onSelect: (id: string) => void;
+    onSelect: () => void;
     onPinClick: (e: MouseEvent, componentId: string, pinId: string) => void;
     onComponentMouseDown: (e: MouseEvent, componentId: string) => void;
 }
@@ -30,6 +30,14 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, de
     if (deleteMode) return 'pointer';
     if (moveMode) return 'grab';
     return 'pointer';
+  }
+
+  const handleMouseDown = (e: MouseEvent) => {
+      // Stop propagation to prevent canvas-level events like deselection or panning
+      e.stopPropagation();
+      onSelect();
+      if (deleteMode) return;
+      onComponentMouseDown?.(e, component.id);
   }
 
   return (
@@ -46,13 +54,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, de
         isSelected && "z-10",
         deleteMode && "hover:opacity-70 transition-opacity",
       )}
-      onMouseDown={(e) => {
-        // Stop propagation to prevent canvas-level events like deselection or panning
-        e.stopPropagation();
-        onSelect(component.id);
-        if (deleteMode) return;
-        onComponentMouseDown?.(e, component.id);
-      }}
+      onMouseDown={handleMouseDown}
     >
       <div
         className={cn(

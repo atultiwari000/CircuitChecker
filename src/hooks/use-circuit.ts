@@ -14,13 +14,13 @@ export function useCircuit() {
   const [debugLogs, setDebugLogs] = useState<LogEntry[]>([]);
 
   const log = useCallback((message: string, category: LogCategory = 'general') => {
-    const timestamp = new Date().toLocaleTimeString();
-    const newLog: LogEntry = {
-        timestamp,
-        message,
-        category,
-    };
-    setDebugLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
+    // const timestamp = new Date().toLocaleTimeString();
+    // const newLog: LogEntry = {
+    //     timestamp,
+    //     message,
+    //     category,
+    // };
+    // setDebugLogs(prev => [newLog, ...prev].slice(0, 100)); // Keep last 100 logs
   }, []);
   
   useEffect(() => {
@@ -45,7 +45,6 @@ export function useCircuit() {
   }, [moveMode]);
 
   const handleValidate = () => {
-    log('handleValidate: Triggered', 'general');
     const newValidationResults: ValidationResult[] = [
       { targetId: 'conn-1', status: 'fail', message: 'Voltage mismatch: Expected 5V, got 3.3V on IC Pin 1.' },
       { targetId: 'conn-2', status: 'pass' },
@@ -56,13 +55,10 @@ export function useCircuit() {
       { targetId: 'c-1', 'status': 'pass' },
     ];
     setValidationResults(newValidationResults);
-    log('Circuit validation complete.');
   };
 
   const handleReset = () => {
-    log('handleReset: Triggered', 'general');
     setValidationResults([]);
-    log('Validation results reset.');
   };
 
   const handleAddComponent = (type: 'Resistor' | 'Capacitor' | 'IC', position: { x: number, y: number }) => {
@@ -82,7 +78,6 @@ export function useCircuit() {
       components: [...prev.components, newComponent],
     }));
     setSelectedComponentId(newId);
-    log(`Added component: ${newComponent.name} at {x: ${position.x.toFixed(0)}, y: ${position.y.toFixed(0)}}`, 'general');
   };
 
   const handleAddConnection = (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }, path: {x: number, y: number}[]) => {
@@ -96,7 +91,6 @@ export function useCircuit() {
       ...prev,
       connections: [...prev.connections, newConnection],
     }));
-    log(`Added connection between ${from.componentId} and ${to.componentId}`, 'wiring');
   };
 
   const handleUpdateComponentPosition = (id: string, position: { x: number; y: number }) => {
@@ -106,7 +100,6 @@ export function useCircuit() {
         c.id === id ? { ...c, position } : c
       ),
     }));
-     log(`Updated position for component ${id} to { x: ${position.x.toFixed(0)}, y: ${position.y.toFixed(0)} }`, 'drag');
   };
 
   const handleUpdateComponentProperties = (id: string, properties: {[key: string]: string | number}) => {
@@ -116,7 +109,6 @@ export function useCircuit() {
         c.id === id ? { ...c, properties: {...c.properties, ...properties} } : c
       ),
     }));
-    log(`Updated properties for component ${id}`, 'general');
   };
 
   const handleDeleteComponent = (id: string) => {
@@ -128,7 +120,6 @@ export function useCircuit() {
     if (selectedComponentId === id) {
         setSelectedComponentId(null);
     }
-    log(`Deleted component ${id}`, 'general');
   }
 
   const handleDeleteConnection = (id: string) => {
@@ -136,7 +127,6 @@ export function useCircuit() {
           ...prev,
           connections: prev.connections.filter(c => c.id !== id),
       }));
-      log(`Deleted connection ${id}`, 'general');
   }
 
 
@@ -147,7 +137,6 @@ export function useCircuit() {
       case 'w':
         event.preventDefault();
         setWiringMode(prev => !prev);
-        log(`Toggling wiring mode to: ${!wiringMode}`, 'wiring');
         break;
       case 'd':
         event.preventDefault();
@@ -163,7 +152,7 @@ export function useCircuit() {
         setMoveMode(false);
         break;
     }
-  }, [log, wiringMode, deleteMode, moveMode]);
+  }, []);
 
   // Using useEffect in the hook to manage global listeners
   useEffect(() => {

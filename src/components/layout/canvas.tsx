@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useRef, type MouseEvent, useCallback, useEffect, useState } from 'react';
@@ -75,28 +74,19 @@ export default function Canvas({
   };
 
   const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
-    log(`CanvasMouseDown: button=${e.button}`, 'general');
-    
-    // This is the key change: if we are in wiring mode and a wire has been started,
-    // any click on the canvas should be treated as adding a new point to the wire.
     if (wiringMode && wireStart) {
-      log(`CanvasMouseDown: In wiring mode with wire started. Calling handleCanvasClick.`, 'wiring');
       handleCanvasClick(e);
       return;
     }
 
     const targetIsCanvas = e.target === canvasRef.current || e.target === e.currentTarget.firstElementChild;
-    log(`CanvasMouseDown: Target is canvas or child: ${targetIsCanvas}`);
     if (!targetIsCanvas) {
-        log(`CanvasMouseDown: Click was not on canvas background. Ignoring.`, 'general');
         return;
     }
     
     if (!isDragging() && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
-      log(`CanvasMouseDown: Starting pan.`, 'pan');
       handlePanStart(e);
     } else if (e.button === 0 && !moveMode && !deleteMode && !wiringMode) { 
-      log('CanvasMouseDown: Deselecting component.', 'general');
       onSelectComponent(null);
     }
   };
@@ -112,7 +102,6 @@ export default function Canvas({
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
-    log(`CanvasDragOver: Item being dragged over canvas.`, 'general');
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -120,7 +109,6 @@ export default function Canvas({
     const data = e.dataTransfer.getData('application/json');
     if (!data) return;
     const { type, name } = JSON.parse(data);
-    log(`CanvasDrop: Dropped item of type '${type}' with name '${name}'`, 'general');
     if (type === 'component') {
       const position = toWorldSpace({ x: e.clientX, y: e.clientY });
       const dims = getComponentDimensions(name as keyof typeof getComponentDimensions);
@@ -133,13 +121,10 @@ export default function Canvas({
   const getComponentPosition = (id: string) => {
     if (dragging?.id === id && dragPositions.current[id]) {
       const livePos = dragPositions.current[id];
-      log(`getComponentPosition: Using live drag position for ${id}: {x:${livePos.x.toFixed(0)}, y:${livePos.y.toFixed(0)}}`, 'drag');
       return livePos;
     }
     const component = circuit.components.find(c => c.id === id);
-    const staticPos = component ? component.position : { x: 0, y: 0 };
-    // log(`getComponentPosition: Using static circuit position for ${id}: {x:${staticPos.x.toFixed(0)}, y:${staticPos.y.toFixed(0)}}`, 'drag');
-    return staticPos;
+    return component ? component.position : { x: 0, y: 0 };
   }
   
   const handleComponentClick = (id: string) => {
@@ -176,19 +161,16 @@ export default function Canvas({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'Escape') {
-            log('Keydown: Escape pressed', 'general');
             if (wireStart) {
-                log('Keydown: Cancelling current wire.', 'wiring');
                 resetWiring();
             } else if (wiringMode) {
-                log('Keydown: Exiting wiring mode.', 'wiring');
                 setWiringMode(false);
             }
         }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [wireStart, wiringMode, setWiringMode, log, resetWiring]);
+  }, [wireStart, wiringMode, setWiringMode, resetWiring]);
 
 
   return (
@@ -226,7 +208,7 @@ export default function Canvas({
                 component={componentWithLivePos}
                 isSelected={selectedComponentId === comp.id}
                 validationStatus={getValidationStatus(comp.id)}
-                onSelect={handleComponentClick}
+                onSelect={() => handleComponentClick(comp.id)}
                 onPinClick={handlePinClick}
                 onComponentMouseDown={handleComponentMouseDown}
                 deleteMode={deleteMode}
