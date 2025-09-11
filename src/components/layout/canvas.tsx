@@ -13,6 +13,7 @@ interface CanvasProps {
   onSelectComponent: (id: string | null) => void;
   onAddComponent: (type: 'Resistor' | 'Capacitor' | 'IC', position: { x: number; y: number }) => void;
   onAddConnection: (from: { componentId: string; pinId: string }, to: { componentId: string; pinId: string }) => void;
+  onUpdateComponentPosition: (id: string, position: { x: number; y: number }) => void;
 }
 
 const componentIcons = {
@@ -36,7 +37,7 @@ function getPinAbsolutePosition(component: CircuitComponent, pinId: string): { x
   };
 }
 
-const CircuitComponentView = memo(({ component, isSelected, validationStatus, onSelect, onPinMouseDown, onPinMouseUp }: { component: CircuitComponent, isSelected: boolean, validationStatus: 'pass' | 'fail' | 'unchecked', onSelect: (id: string) => void, onPinMouseDown: (e: MouseEvent, componentId: string, pinId: string) => void, onPinMouseUp: (e: MouseEvent, componentId: string, pinId: string) => void }) => {
+const CircuitComponentView = memo(({ component, isSelected, validationStatus, onSelect, onPinMouseDown, onPinMouseUp, onComponentMouseDown }: { component: CircuitComponent, isSelected: boolean, validationStatus: 'pass' | 'fail' | 'unchecked', onSelect: (id: string) => void, onPinMouseDown: (e: MouseEvent, componentId: string, pinId: string) => void, onPinMouseUp: (e: MouseEvent, componentId: string, pinId: string) => void, onComponentMouseDown: (e: MouseEvent, componentId: string) => void }) => {
   const CompIcon = componentIcons[component.type];
   const dims = componentDimensions[component.type];
 
@@ -56,6 +57,7 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
         e.stopPropagation();
         onSelect(component.id)
       }}
+      onMouseDown={(e) => onComponentMouseDown(e, component.id)}
     >
       <div
         className={cn(
@@ -85,13 +87,15 @@ const CircuitComponentView = memo(({ component, isSelected, validationStatus, on
 });
 CircuitComponentView.displayName = 'CircuitComponentView';
 
-export default function Canvas({ circuit, validationResults, selectedComponentId, onSelectComponent, onAddComponent, onAddConnection }: CanvasProps) {
+export default function Canvas({ circuit, validationResults, selectedComponentId, onSelectComponent, onAddComponent, onAddConnection, onUpdateComponentPosition }: CanvasProps) {
   const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const [linking, setLinking] = useState<{ from: { componentId: string, pinId: string }, to: { x: number, y: number } } | null>(null);
+  const [dragging, setDragging] = useState<{ id: string, offset: { x: number, y: number } } | null>(null);
+
 
   const getValidationStatus = (id: string) => {
     return validationResults.find(r => r.targetId === id)?.status || 'unchecked';
@@ -125,10 +129,18 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
       const { x, y } = toWorldSpace({ x: e.clientX, y: e.clientY });
       setLinking(l => l && { ...l, to: { x, y } });
     }
+    if (dragging) {
+      const { x, y } = toWorldSpace({ x: e.clientX, y: e.clientY });
+      onUpdateComponentPosition(dragging.id, {
+        x: x - dragging.offset.x,
+        y: y - dragging.offset.y,
+      });
+    }
   };
 
   const handleMouseUp = (e: MouseEvent<HTMLDivElement>) => {
     setIsPanning(false);
+    setDragging(null);
     e.currentTarget.style.cursor = 'default';
     if (linking) {
       setLinking(null);
@@ -179,6 +191,22 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
     }
   };
 
+  const handleComponentMouseDown = (e: MouseEvent, componentId: string) => {
+    e.stopPropagation();
+    onSelectComponent(componentId);
+    const component = circuit.components.find(c => c.id === componentId);
+    if (!component) return;
+
+    const worldPos = toWorldSpace({ x: e.clientX, y: e.clientY });
+    setDragging({
+      id: componentId,
+      offset: {
+        x: worldPos.x - component.position.x,
+        y: worldPos.y - component.position.y,
+      },
+    });
+  };
+
   const handlePinMouseDown = useCallback((e: MouseEvent, componentId: string, pinId: string) => {
     e.stopPropagation();
     const { x, y } = toWorldSpace({ x: e.clientX, y: e.clientY });
@@ -218,6 +246,7 @@ export default function Canvas({ circuit, validationResults, selectedComponentId
               onSelect={onSelectComponent}
               onPinMouseDown={handlePinMouseDown}
               onPinMouseUp={handlePinMouseUp}
+              onComponentMouseDown={handleComponentMouseDown}
           />
         ))}
         <svg className="absolute top-0 left-0 pointer-events-none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>

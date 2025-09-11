@@ -117,6 +117,15 @@ export default function Home() {
     }));
   };
 
+  const handleUpdateComponentPosition = (id: string, position: { x: number; y: number }) => {
+    setCircuit(prev => ({
+      ...prev,
+      components: prev.components.map(c => 
+        c.id === id ? { ...c, position } : c
+      ),
+    }));
+  };
+
   const selectedComponent = circuit.components.find(c => c.id === selectedComponentId);
   const validationFailures = validationResults
     .filter(r => r.status === 'fail' && r.message)
@@ -139,6 +148,7 @@ export default function Home() {
             selectedComponentId={selectedComponentId}
             onAddComponent={handleAddComponent}
             onAddConnection={handleAddConnection}
+            onUpdateComponentPosition={handleUpdateComponentPosition}
           />
         </main>
         <PropertiesPanel component={selectedComponent} />
