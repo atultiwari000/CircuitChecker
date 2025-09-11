@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useRef, useCallback, type RefObject } from 'react';
@@ -8,7 +9,7 @@ interface ViewTransform {
   scale: number;
 }
 
-export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (message: string) => void) {
+export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (message: string) => void, disabled = false) {
   const [viewTransform, setViewTransform] = useState<ViewTransform>({ x: 0, y: 0, scale: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef({ x: 0, y: 0 });
@@ -23,6 +24,7 @@ export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (messag
   }, [viewTransform, canvasRef]);
 
   const handlePanStart = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (disabled) return;
     log('handlePanStart: Start panning');
     setIsPanning(true);
     panStart.current = { x: e.clientX - viewTransform.x, y: e.clientY - viewTransform.y };
@@ -32,7 +34,7 @@ export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (messag
   };
 
   const handlePanMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isPanning) return;
+    if (!isPanning || disabled) return;
     const x = e.clientX - panStart.current.x;
     const y = e.clientY - panStart.current.y;
     setViewTransform(v => ({ ...v, x, y }));
@@ -49,7 +51,7 @@ export function usePanAndZoom(canvasRef: RefObject<HTMLDivElement>, log: (messag
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (!canvasRef.current) return;
+    if (disabled || !canvasRef.current) return;
     const { clientX, clientY, deltaY } = e;
     const rect = canvasRef.current.getBoundingClientRect();
     

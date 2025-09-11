@@ -10,6 +10,7 @@ import { usePanAndZoom } from '@/hooks/use-pan-and-zoom';
 import { useComponentDrag } from '@/hooks/use-component-drag';
 import { useWiring } from '@/hooks/use-wiring';
 import { getPinAbsolutePosition, getComponentDimensions } from '@/lib/canvas-utils';
+import WiringRuler from '../canvas/wiring-ruler';
 
 interface CanvasProps {
   circuit: Circuit;
@@ -38,7 +39,7 @@ export default function Canvas({
 }: CanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  const { viewTransform, isPanning, toWorldSpace, panStart, handlePanStart, handlePanMove, handlePanEnd, handleWheel } = usePanAndZoom(canvasRef, log);
+  const { viewTransform, isPanning, toWorldSpace, panStart, handlePanStart, handlePanMove, handlePanEnd, handleWheel } = usePanAndZoom(canvasRef, log, wiringMode);
   
   const { dragging, dragPositions, handleComponentMouseDown, isDragging } = useComponentDrag({
     circuit,
@@ -50,7 +51,7 @@ export default function Canvas({
     log
   });
 
-  const { wireStart, wirePath, cursorPos, handlePinClick, handleWiringMouseMove, resetWiring } = useWiring({
+  const { wireStart, wirePath, cursorPos, handlePinClick, handleCanvasClick, handleWiringMouseMove, resetWiring } = useWiring({
     circuit,
     toWorldSpace,
     wiringMode,
@@ -67,9 +68,14 @@ export default function Canvas({
     log(`handleMouseDown: button=${e.button}, target=${(e.target as HTMLElement).className}`);
     if (e.target !== canvasRef.current && e.target !== e.currentTarget.firstChild) return;
 
-    if (!isDragging() && !wiringMode && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
+    if (wiringMode) {
+      handleCanvasClick(e);
+      return;
+    }
+
+    if (!isDragging() && (e.button === 1 || (e.button === 0 && (e.ctrlKey || e.metaKey)))) {
       handlePanStart(e);
-    } else if (e.button === 0 && !wiringMode) {
+    } else if (e.button === 0) {
       log('handleMouseDown: Deselecting component');
       onSelectComponent(null);
     }
@@ -143,11 +149,14 @@ export default function Canvas({
       style={{ cursor: isPanning ? 'grabbing' : wiringMode ? 'crosshair' : 'default', userSelect: 'none' }}
     >
       {wiringMode && (
-          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 bg-primary/80 text-primary-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-2">
-            <Waves className="h-4 w-4" />
-            WIRING MODE
-            <span className="text-primary-foreground/70 font-mono">(ESC to exit)</span>
-          </div>
+          <>
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 bg-primary/80 text-primary-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-2">
+              <Waves className="h-4 w-4" />
+              WIRING MODE
+              <span className="text-primary-foreground/70 font-mono">(ESC to exit)</span>
+            </div>
+            <WiringRuler worldCursorPos={cursorPos} viewTransform={viewTransform} />
+          </>
       )}
       <div 
         className="relative w-full h-full"
@@ -243,10 +252,12 @@ export default function Canvas({
 
                 const lastPoint = wirePath[wirePath.length - 1];
                 let liveSegment = '';
-                if (Math.abs(cursorPos.x - lastPoint.x) > Math.abs(cursorPos.y - lastPoint.y)) {
-                    liveSegment = `L ${cursorPos.x} ${lastPoint.y}`;
-                } else {
-                    liveSegment = `L ${lastPoint.x} ${cursorPos.y}`;
+                if (cursorPos.x !== lastPoint.x || cursorPos.y !== lastPoint.y) {
+                    if (Math.abs(cursorPos.x - lastPoint.x) > Math.abs(cursorPos.y - lastPoint.y)) {
+                        liveSegment = `L ${cursorPos.x} ${lastPoint.y}`;
+                    } else {
+                        liveSegment = `L ${lastPoint.x} ${cursorPos.y}`;
+                    }
                 }
                 
                 return (

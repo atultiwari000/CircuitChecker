@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useCallback, type MouseEvent } from 'react';
 import type { Circuit } from '@/lib/types';
@@ -52,11 +53,15 @@ export function useWiring({
         const finalPath = [...wirePath];
         const lastPoint = finalPath[finalPath.length - 1];
 
+        // Decide if last segment is horizontal or vertical
         if (Math.abs(pinPos.x - lastPoint.x) > Math.abs(pinPos.y - lastPoint.y)) {
-          finalPath.push({ x: pinPos.x, y: lastPoint.y }, pinPos);
+          // Horizontal is longer, create a horizontal segment then a vertical one
+          if (lastPoint.y !== pinPos.y) finalPath.push({ x: pinPos.x, y: lastPoint.y });
         } else {
-          finalPath.push({ x: lastPoint.x, y: pinPos.y }, pinPos);
+          // Vertical is longer, create a vertical segment then a horizontal one
+          if (lastPoint.x !== pinPos.x) finalPath.push({ x: lastPoint.x, y: pinPos.y });
         }
+        finalPath.push(pinPos);
 
         const cleanedPath = finalPath.filter((p, i, arr) => {
           if (i === 0 || i === arr.length -1) return true;
@@ -89,7 +94,7 @@ export function useWiring({
         newPoint = { x: lastPoint.x, y: worldPos.y };
     }
     setWirePath(p => [...p, newPoint]);
-    log(`handleCanvasClick: New wire point: { x: ${newPoint.x}, y: ${newPoint.y} }`);
+    log(`handleCanvasClick: New wire point: { x: ${newPoint.x.toFixed(0)}, y: ${newPoint.y.toFixed(0)} }`);
   };
 
   const handleWiringMouseMove = (e: MouseEvent<HTMLDivElement>) => {
