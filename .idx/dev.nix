@@ -21,6 +21,8 @@
     pkgs.gh
     pkgs.openssh
     pkgs.docker
+    pkgs.m4
+    pkgs.clang
   ];
   # Sets environment variables in the workspace
   env = {};
