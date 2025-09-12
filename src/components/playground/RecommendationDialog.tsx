@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Module } from "@/lib/types";
 import { recommendAlternativeModulesAction } from "@/actions/recommend";
-import type { RecommendAlternativeModulesOutput } from "@/ai/flows/recommend-alternative-modules";
+import type { RecommendAlternativeModulesOutput } from "@/ai/flows/recommend-modules";
 import { Skeleton } from "../ui/skeleton";
 import { Lightbulb } from "lucide-react";
 import { Card, CardContent } from "../ui/card";

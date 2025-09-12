@@ -50,12 +50,16 @@ const PortComponent = ({
 };
 
 export default function HardwareModule({ module }: HardwareModuleProps) {
-  const { updateModulePosition, setSelectedModule } = usePlayground();
+  const { updateModulePosition, setSelectedModule, isCutMode, removeModule } =
+    usePlayground();
   const [isDragging, setIsDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest('[class*="rounded-full"]')) {
+    if (
+      (e.target as HTMLElement).closest('[class*="rounded-full"]') ||
+      isCutMode
+    ) {
       return;
     }
     setSelectedModule(module);
@@ -86,7 +90,11 @@ export default function HardwareModule({ module }: HardwareModuleProps) {
   };
 
   const handleClick = () => {
-    setSelectedModule(module);
+    if (isCutMode) {
+      removeModule(module.instanceId);
+    } else {
+      setSelectedModule(module);
+    }
   };
 
   useEffect(() => {
@@ -110,16 +118,18 @@ export default function HardwareModule({ module }: HardwareModuleProps) {
     <div
       id={module.instanceId}
       className="absolute"
-      style={{
-        left: module.position.x,
-        top: module.position.y,
-        cursor: "grab",
-        zIndex: 10,
-      }}
+      style={{ left: module.position.x, top: module.position.y, zIndex: 10 }}
       onMouseDown={handleMouseDown}
       onClick={handleClick}
     >
-      <Card className="w-[180px] h-[70px] border-2 bg-card/80 backdrop-blur-sm shadow-lg hover:border-primary/50 transition-colors flex items-center justify-center p-2 relative">
+      <Card
+        className={cn(
+          "w-[180px] h-[70px] border-2 bg-card/80 backdrop-blur-sm shadow-lg hover:border-primary/50 transition-colors flex items-center justify-center p-2 relative",
+          isCutMode
+            ? "cursor-crosshair border-destructive hover:border-destructive"
+            : "cursor-grab"
+        )}
+      >
         <p className="font-headline text-center text-sm">{module.name}</p>
         {leftPorts.map((port) => (
           <PortComponent

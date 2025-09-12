@@ -36,6 +36,8 @@ interface PlaygroundContextType {
   selectedModule: ModuleInstance | null;
   connectionMode: ConnectionMode;
   waypoints: Point[];
+  isCutMode: boolean;
+  transformControls: TransformControls | null;
   addModule: (moduleId: string, position: { x: number; y: number }) => void;
   updateModulePosition: (
     instanceId: string,
@@ -52,6 +54,7 @@ interface PlaygroundContextType {
   setConnectingPort: (
     port: { instanceId: string; portId: string } | null
   ) => void;
+  toggleCutMode: () => void;
 }
 
 const PlaygroundContext = createContext<PlaygroundContextType | undefined>(
@@ -73,6 +76,9 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
   const [waypoints, setWaypoints] = useState<Point[]>([]);
   const { toast } = useToast();
   const [showConnectionModeToast, setShowConnectionModeToast] = useState(false);
+  const [transformControls, setTransformControls] =
+    useState<TransformControls | null>(null);
+  const [isCutMode, setIsCutMode] = useState(false);
 
   useEffect(() => {
     if (showConnectionModeToast) {
@@ -107,6 +113,10 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
 
   const removeConnection = (connectionId: string) => {
     setConnections((prev) => prev.filter((c) => c.id !== connectionId));
+    toast({
+      title: "Connection Removed",
+      description: "The connection has been cut.",
+    });
   };
 
   const removeModule = (instanceId: string) => {
@@ -120,9 +130,22 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
     if (selectedModule?.instanceId === instanceId) {
       setSelectedModule(null);
     }
+    toast({
+      title: "Module Removed",
+      description: "The module has been cut from the circuit.",
+    });
   };
 
   const handlePortClick = (instanceId: string, portId: string) => {
+    if (isCutMode) {
+      toast({
+        title: "Cut Mode Active",
+        description:
+          "Cannot start a connection while in cut mode. Press 'x' to exit.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!connectingPort) {
       setConnectingPort({ instanceId, portId });
       setWaypoints([]);
@@ -222,7 +245,7 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
 
   const handleSetTransformControls = useCallback(
     (controls: TransformControls) => {
-      // This function is kept for now in case we need to pass other controls in the future
+      setTransformControls(controls);
     },
     []
   );
@@ -250,6 +273,26 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const toggleCutMode = useCallback(() => {
+    setIsCutMode((prev) => {
+      const newMode = !prev;
+      if (newMode) {
+        setConnectingPort(null); // Exit connection mode if entering cut mode
+        toast({
+          title: "Cut Mode Enabled",
+          description:
+            "Click on a component or wire to remove it. Press 'x' to exit.",
+        });
+      } else {
+        toast({
+          title: "Cut Mode Disabled",
+          description: "You can now select and move components.",
+        });
+      }
+      return newMode;
+    });
+  }, [toast]);
+
   const value = {
     modules,
     connections,
@@ -257,6 +300,8 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
     selectedModule,
     connectionMode,
     waypoints,
+    isCutMode,
+    transformControls,
     addModule,
     updateModulePosition,
     handlePortClick,
@@ -268,6 +313,7 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
     toggleConnectionMode,
     addWaypoint,
     setConnectingPort: handleSetConnectingPort,
+    toggleCutMode,
   };
 
   return (

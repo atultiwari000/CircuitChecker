@@ -17,6 +17,10 @@ const getOrthogonalPath = (points: Point[]) => {
     const curr = points[i];
     // Create an intermediate point to make the turn
     if (prev.x !== curr.x && prev.y !== curr.y) {
+      const midX = prev.x + (curr.x - prev.x) / 2;
+      path += ` L ${midX} ${prev.y}`;
+      path += ` L ${midX} ${curr.y}`;
+    } else {
       path += ` L ${curr.x} ${prev.y}`;
     }
     path += ` L ${curr.x} ${curr.y}`;
@@ -24,22 +28,10 @@ const getOrthogonalPath = (points: Point[]) => {
   return path;
 };
 
-// Function to generate a curved path
 const getCurvedPath = (p1: Point, p2: Point) => {
   return `M ${p1.x} ${p1.y} C ${p1.x + (p2.x - p1.x) / 2} ${p1.y}, ${
     p1.x + (p2.x - p1.x) / 2
   } ${p2.y}, ${p2.x} ${p2.y}`;
-};
-
-const getPathWithWaypoints = (
-  p1: Point,
-  p2: Point,
-  waypoints: Point[] = []
-) => {
-  if (waypoints.length === 0) {
-    return getCurvedPath(p1, p2);
-  }
-  return getOrthogonalPath([p1, ...waypoints, p2]);
 };
 
 export default function ConnectionLines() {
@@ -50,6 +42,7 @@ export default function ConnectionLines() {
     removeConnection,
     connectionMode,
     waypoints,
+    isCutMode,
   } = usePlayground();
   const [mousePosition, setMousePosition] = useState<{
     x: number;
@@ -121,6 +114,12 @@ export default function ConnectionLines() {
     return getCurvedPath(p1, p2);
   };
 
+  const handleLineClick = (connectionId: string) => {
+    if (isCutMode) {
+      removeConnection(connectionId);
+    }
+  };
+
   return (
     <svg className="absolute top-0 left-0 h-full w-full pointer-events-none z-20">
       {connections.map((conn) => {
@@ -152,8 +151,11 @@ export default function ConnectionLines() {
               strokeWidth="12"
               fill="none"
               stroke="transparent"
-              className="pointer-events-auto cursor-pointer"
-              onClick={() => removeConnection(conn.id)}
+              className={cn(
+                "pointer-events-auto",
+                isCutMode && "cursor-pointer"
+              )}
+              onClick={() => handleLineClick(conn.id)}
             />
           </g>
         );

@@ -12,6 +12,9 @@ import {
   PanelLeftOpen,
   PanelRightClose,
   PanelRightOpen,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from "lucide-react";
 import {
   Tooltip,
@@ -44,6 +47,7 @@ export default function Playground({
     toggleConnectionMode,
     addWaypoint,
     setConnectingPort,
+    toggleCutMode,
   } = usePlayground();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,13 +77,21 @@ export default function Playground({
       if (e.key === "w" && !e.metaKey && !e.ctrlKey) {
         toggleConnectionMode();
       }
+      if (e.key === "x" && !e.metaKey && !e.ctrlKey) {
+        toggleCutMode();
+      }
       if (e.key === "Escape") {
         setConnectingPort(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleConnectionMode, setConnectingPort, setTransformControls]);
+  }, [
+    toggleConnectionMode,
+    setConnectingPort,
+    setTransformControls,
+    toggleCutMode,
+  ]);
 
   useEffect(() => {
     const handleOpenDialog = (event: Event) => {
@@ -201,7 +213,7 @@ export default function Playground({
         limitToBounds={false}
         panning={{
           activationKeys: ["Space"],
-          excluded: ["input", "button", "a", '[class*="group"]'],
+          excluded: ["input", "button", "a"],
         }}
       >
         <TransformComponent

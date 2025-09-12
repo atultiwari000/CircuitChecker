@@ -1,6 +1,15 @@
 "use client";
 
-import { Code2, Moon, Sun, ShieldCheck } from "lucide-react";
+import {
+  Code2,
+  Moon,
+  Sun,
+  ShieldCheck,
+  Scissors,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+} from "lucide-react";
 import { Button } from "../ui/button";
 import { useTheme } from "next-themes";
 import {
@@ -10,10 +19,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { usePlayground } from "@/hooks/usePlayground";
+import { cn } from "@/lib/utils";
 
 export default function Header() {
   const { setTheme } = useTheme();
-  const { validateCircuit } = usePlayground();
+  const { validateCircuit, transformControls, isCutMode, toggleCutMode } =
+    usePlayground();
 
   return (
     <header className="flex h-12 shrink-0 items-center border-b px-4 md:px-6">
@@ -24,9 +35,41 @@ export default function Header() {
         </h1>
       </div>
       <div className="ml-auto flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => transformControls?.zoomIn?.()}
+        >
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => transformControls?.zoomOut?.()}
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => transformControls?.resetTransform?.()}
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
         <Button variant="outline" onClick={validateCircuit}>
           <ShieldCheck className="h-4 w-4 mr-2" />
           Validate
+        </Button>
+        <Button
+          variant="outline"
+          onClick={toggleCutMode}
+          className={cn(
+            isCutMode &&
+              "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          )}
+        >
+          <Scissors className="h-4 w-4 mr-2" />
+          Cut
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
