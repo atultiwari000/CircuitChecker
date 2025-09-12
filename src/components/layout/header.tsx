@@ -1,22 +1,7 @@
 "use client";
 
-import {
-  Code2,
-  PanelLeftClose,
-  PanelRightClose,
-  PanelLeftOpen,
-  PanelRightOpen,
-  Moon,
-  Sun,
-  ShieldCheck,
-} from "lucide-react";
+import { Code2, Moon, Sun, ShieldCheck } from "lucide-react";
 import { Button } from "../ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "../ui/tooltip";
 import { useTheme } from "next-themes";
 import {
   DropdownMenu,
@@ -26,19 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { usePlayground } from "@/hooks/usePlayground";
 
-interface HeaderProps {
-  isLibraryOpen: boolean;
-  isInspectorOpen: boolean;
-  toggleLibrary: () => void;
-  toggleInspector: () => void;
-}
-
-export default function Header({
-  isLibraryOpen,
-  isInspectorOpen,
-  toggleLibrary,
-  toggleInspector,
-}: HeaderProps) {
+export default function Header() {
   const { setTheme } = useTheme();
   const { validateCircuit } = usePlayground();
 
@@ -49,24 +22,6 @@ export default function Header({
         <h1 className="font-headline text-lg font-bold tracking-tight text-primary">
           CircuitVerse
         </h1>
-      </div>
-      <div className="flex items-center gap-2 ml-4">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={toggleLibrary}>
-                {isLibraryOpen ? (
-                  <PanelLeftClose className="h-5 w-5" />
-                ) : (
-                  <PanelLeftOpen className="h-5 w-5" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isLibraryOpen ? "Close" : "Open"} Component Library</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
       <div className="ml-auto flex items-center gap-2">
         <Button variant="outline" onClick={validateCircuit}>
@@ -93,23 +48,6 @@ export default function Header({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={toggleInspector}>
-                {isInspectorOpen ? (
-                  <PanelRightClose className="h-5 w-5" />
-                ) : (
-                  <PanelRightOpen className="h-5 w-5" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isInspectorOpen ? "Close" : "Open"} Inspector</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
     </header>
   );

@@ -6,8 +6,33 @@ import HardwareModule from "./HardwareModule";
 import ConnectionLines from "./ConnectionLines";
 import RecommendationDialog from "./RecommendationDialog";
 import type { Module } from "@/lib/types";
+import { Button } from "../ui/button";
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+} from "lucide-react";
+import {
+  Tooltip,
+  TooltipProvider,
+  TooltipContent,
+  TooltipTrigger,
+} from "../ui/tooltip";
 
-export default function Playground() {
+interface PlaygroundProps {
+  isLibraryOpen: boolean;
+  isInspectorOpen: boolean;
+  toggleLibrary: () => void;
+  toggleInspector: () => void;
+}
+
+export default function Playground({
+  isLibraryOpen,
+  isInspectorOpen,
+  toggleLibrary,
+  toggleInspector,
+}: PlaygroundProps) {
   const playgroundRef = useRef<HTMLDivElement>(null);
   const { modules, addModule } = usePlayground();
 
@@ -57,6 +82,53 @@ export default function Playground() {
         backgroundSize: "20px 20px",
       }}
     >
+      <div className="absolute top-4 left-4 z-20">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleLibrary}
+                className="bg-card/80 backdrop-blur-sm"
+              >
+                {isLibraryOpen ? (
+                  <PanelLeftClose className="h-5 w-5" />
+                ) : (
+                  <PanelLeftOpen className="h-5 w-5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isLibraryOpen ? "Close" : "Open"} Component Library</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      <div className="absolute top-4 right-4 z-20">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleInspector}
+                className="bg-card/80 backdrop-blur-sm"
+              >
+                {isInspectorOpen ? (
+                  <PanelRightClose className="h-5 w-5" />
+                ) : (
+                  <PanelRightOpen className="h-5 w-5" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isInspectorOpen ? "Close" : "Open"} Inspector</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
       <ConnectionLines />
       {modules.map((module) => (
         <HardwareModule key={module.instanceId} module={module} />
