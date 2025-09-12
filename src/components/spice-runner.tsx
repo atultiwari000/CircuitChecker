@@ -5,7 +5,7 @@ import { Textarea } from './ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 // @ts-ignore
-import createNgspice from '../../../spice/spice.js';
+import createNgspice from '../spice/spice.js';
 
 const initialNetlist = `* Simple Resistor Voltage Divider
 V1 in 0 DC 10

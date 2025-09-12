@@ -62,31 +62,30 @@ var readAsync, readBinary;
 // Node.js workers are detected as a combination of ENVIRONMENT_IS_WORKER and
 // ENVIRONMENT_IS_NODE.
 if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
-  try {
-    scriptDirectory = new URL(".", _scriptName).href;
-  } catch {}
-  {
-    // include: web_or_worker_shell_read.js
-    if (ENVIRONMENT_IS_WORKER) {
-      readBinary = url => {
-        var xhr = new XMLHttpRequest;
-        xhr.open("GET", url, false);
-        xhr.responseType = "arraybuffer";
-        xhr.send(null);
-        return new Uint8Array(/** @type{!ArrayBuffer} */ (xhr.response));
-      };
-    }
-    readAsync = async url => {
-      var response = await fetch(url, {
-        credentials: "same-origin"
-      });
-      if (response.ok) {
-        return response.arrayBuffer();
-      }
-      throw new Error(response.status + " : " + response.url);
+  // point to public folder
+  const scriptDirectory = '/spice/'; 
+
+  // optional: readBinary for workers
+  if (ENVIRONMENT_IS_WORKER) {
+    readBinary = url => {
+      var xhr = new XMLHttpRequest();
+      xhr.open("GET", url, false);
+      xhr.responseType = "arraybuffer";
+      xhr.send(null);
+      return new Uint8Array(xhr.response);
     };
   }
-} else {}
+
+  readAsync = async url => {
+    const response = await fetch(url, { credentials: "same-origin" });
+    if (response.ok) return response.arrayBuffer();
+    throw new Error(response.status + " : " + response.url);
+  };
+
+  // tell Module where to find wasm
+  Module.locateFile = (filename) => scriptDirectory + filename;
+}
+else {}
 
 var out = console.log.bind(console);
 
@@ -221,19 +220,12 @@ function postRun() {
 
 var wasmBinaryFile;
 
-// function findWasmBinary() {
-//   if (Module["locateFile"]) {
-//     return locateFile("spice.wasm");
-//   }
-//   // Use bundler-friendly `new URL(..., import.meta.url)` pattern; works in browsers too.
-//   return new URL("spice.wasm", import.meta.url).href;
-// }
-
-import wasmUrl from '../spice/spice.wasm?url'; // Vite syntax
-// or with Webpack: import wasmUrl from '../spice/spice.wasm';
-
 function findWasmBinary() {
-  return wasmUrl;
+  if (Module["locateFile"]) {
+    return locateFile("spice.wasm");
+  }
+  // Use bundler-friendly `new URL(..., import.meta.url)` pattern; works in browsers too.
+  return new URL("spice.wasm", import.meta.url).href;
 }
 
 function getBinarySync(file) {
