@@ -1,0 +1,1 @@
+D:\projects\zed\emsdk\emsdk.bat activate latest --permanent

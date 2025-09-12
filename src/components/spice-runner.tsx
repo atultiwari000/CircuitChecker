@@ -1,11 +1,9 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
-// @ts-ignore
-import createNgspice from '../spice/spice.js';
 
 const initialNetlist = `* Simple Resistor Voltage Divider
 V1 in 0 DC 10
@@ -13,68 +11,76 @@ R1 in out 1k
 R2 out 0 2k
 
 .op
-.print allv
+.print dc v(in) v(out) i(v1)
 
 .end
 `;
 
 export default function SpiceRunner() {
-  const [ngspice, setNgspice] = useState<any>(null);
-  const [isReady, setIsReady] = useState(false);
+  const [isReady, setIsReady] = useState(true);
   const [netlist, setNetlist] = useState(initialNetlist);
-  const [output, setOutput] = useState<string>('');
+  const [output, setOutput] = useState<string>('Click the Run Simulation button to start...\n');
   const [isRunning, setIsRunning] = useState(false);
-
-  useEffect(() => {
-    async function loadNgspice() {
-      try {
-        const instance = await createNgspice({
-          locateFile: (file: string) => `/spice/${file}`, // WASM files in public/spice
-          postRun: [],
-          print: (text: string) => {
-            setOutput(prev => prev + text + '\n');
-          },
-          printErr: (text: string) => {
-            // hide expected warnings
-            if (!text.includes('/proc/meminfo') && !text.includes('spinit')) {
-              setOutput(prev => prev + 'ERROR: ' + text + '\n');
-            }
-          }
-        });
-        setNgspice(instance);
-        setIsReady(true);
-      } catch (e) {
-        console.error("Error loading ngspice:", e);
-        setOutput("Failed to load ngspice WASM module. See console for details.");
-      }
-    }
-    loadNgspice();
-  }, []);
+  const scriptLoadedRef = useRef(false);
 
   const runSimulation = () => {
-    if (!ngspice || !isReady) {
-      setOutput('ngspice is not ready.');
-      return;
-    }
+    if (isRunning) return;
 
     setIsRunning(true);
-    setOutput('');
+    setOutput('Simulation running. Please wait...\n');
 
-    setTimeout(() => {
-      try {
-        // Write netlist to virtual FS
-        ngspice.FS.writeFile('/netlist.cir', netlist);
-
-        // Minimal WASM build runs automatically after netlist is written
-        // No need to call ngspice_main or cmd()
-        setOutput(prev => prev + 'Simulation started...\nCheck output above.');
-
-      } catch (e: any) {
-        setOutput(prev => prev + 'Exception during simulation: ' + e.message);
-      } finally {
+    // Setup Module configuration (global variable for Emscripten)
+    (window as any).Module = {
+      arguments: ['-b', 'circuit.cir'],
+      preRun: [() => {
+        console.log('Setting up ngspice simulation');
+        // Write netlist to virtual filesystem
+        (window as any).FS.writeFile('/circuit.cir', netlist);
+      }],
+      postRun: [() => {
+        console.log('Simulation completed');
+        setOutput(prev => prev + '\nSimulation finished. You can run another simulation.\n');
         setIsRunning(false);
+      }],
+      print: (text: string) => {
+        if (text) {
+          setOutput(prev => prev + text + '\n');
+        }
+      },
+      printErr: (text: string) => {
+        // Hide expected warnings and errors
+        if (!text.includes('/proc/meminfo') &&
+          !text.includes('spinit') &&
+          !text.includes('init file') &&
+          !text.includes('/proc/') &&
+          !text.includes('compatibility mode') &&
+          !text.includes('allv analysis')) {
+          setOutput(prev => prev + 'ERROR: ' + text + '\n');
+        }
+      },
+      locateFile: (file: string) => `/spice/${file}`
+    };
+
+    // Load spice script dynamically
+    const script = document.createElement('script');
+    script.src = '/spice/ngspice.js';
+    script.type = 'text/javascript';
+    script.onload = () => {
+      console.log('ngspice.js loaded successfully');
+    };
+    script.onerror = () => {
+      setOutput(prev => prev + 'ERROR: Failed to load ngspice.js\n');
+      setIsRunning(false);
+    };
+
+    document.body.appendChild(script);
+
+    // Clean up script after use
+    setTimeout(() => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
       }
-    }, 50); // allow UI update
+    }, 10000); // Remove after 10 seconds
   };
 
   return (
