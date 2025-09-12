@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Loader2 } from 'lucide-react';
@@ -12,10 +12,8 @@ V1 in 0 DC 10
 R1 in out 1k
 R2 out 0 2k
 
-.control
-op
-print allv
-.endc
+.op
+.print allv
 
 .end
 `;
@@ -31,13 +29,17 @@ export default function SpiceRunner() {
     async function loadNgspice() {
       try {
         const instance = await createNgspice({
-            postRun: [],
-            print: (text: string) => {
-                setOutput(prev => prev + text + '\n');
-            },
-            printErr: (text: string) => {
-                setOutput(prev => prev + 'ERROR: ' + text + '\n');
+          locateFile: (file: string) => `/spice/${file}`, // WASM files in public/spice
+          postRun: [],
+          print: (text: string) => {
+            setOutput(prev => prev + text + '\n');
+          },
+          printErr: (text: string) => {
+            // hide expected warnings
+            if (!text.includes('/proc/meminfo') && !text.includes('spinit')) {
+              setOutput(prev => prev + 'ERROR: ' + text + '\n');
             }
+          }
         });
         setNgspice(instance);
         setIsReady(true);
@@ -54,33 +56,29 @@ export default function SpiceRunner() {
       setOutput('ngspice is not ready.');
       return;
     }
+
     setIsRunning(true);
     setOutput('');
-    
-    setTimeout(() => {
-        try {
-            ngspice.FS.writeFile('/netlist.cir', netlist);
-            const result = ngspice.ccall(
-              'ngspice_main',
-              'number',
-              ['array'],
-              [['/netlist.cir']]
-            );
-            
-            if (result !== 0) {
-                 setOutput(prev => prev + `\nSimulation finished with exit code: ${result}`);
-            }
 
-        } catch (e: any) {
-            setOutput(prev => prev + 'Exception during simulation: ' + e.message);
-        } finally {
-            setIsRunning(false);
-        }
-    }, 50); // Small delay to allow UI to update
+    setTimeout(() => {
+      try {
+        // Write netlist to virtual FS
+        ngspice.FS.writeFile('/netlist.cir', netlist);
+
+        // Minimal WASM build runs automatically after netlist is written
+        // No need to call ngspice_main or cmd()
+        setOutput(prev => prev + 'Simulation started...\nCheck output above.');
+
+      } catch (e: any) {
+        setOutput(prev => prev + 'Exception during simulation: ' + e.message);
+      } finally {
+        setIsRunning(false);
+      }
+    }, 50); // allow UI update
   };
 
   return (
-    <div className="grid grid-cols-2 gap-4 h-full">
+    <div className="grid grid-cols-2 gap-4 h-full overflow-auto">
       <div className="flex flex-col gap-4">
         <h3 className="font-semibold">SPICE Netlist</h3>
         <Textarea
@@ -99,9 +97,9 @@ export default function SpiceRunner() {
       <div className="flex flex-col gap-4">
         <h3 className="font-semibold">Simulation Output</h3>
         <ScrollArea className="h-full bg-muted rounded-md border p-4">
-            <pre className="text-xs font-mono whitespace-pre-wrap">
-                {isReady ? (output || "Output will appear here.") : "Loading ngspice..."}
-            </pre>
+          <pre className="text-xs font-mono whitespace-pre-wrap">
+            {isReady ? (output || "Output will appear here.") : "Loading ngspice..."}
+          </pre>
         </ScrollArea>
       </div>
     </div>

@@ -3,6 +3,8 @@
 
 // When targetting node and ES6 we use `await import ..` in the generated code
 // so the outer function needs to be marked as async.
+import wasmUrl from '../spice/spice.wasm?url'; // Vite syntax
+
 async function Module(moduleArg = {}) {
   var moduleRtn;
 
@@ -229,7 +231,6 @@ var wasmBinaryFile;
 //   return new URL("spice.wasm", import.meta.url).href;
 // }
 
-import wasmUrl from '../spice/spice.wasm?url'; // Vite syntax
 // or with Webpack: import wasmUrl from '../spice/spice.wasm';
 
 function findWasmBinary() {
