@@ -8,13 +8,17 @@ export interface Port {
   position: 'left' | 'right' | 'top' | 'bottom';
 }
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
 export interface Module {
   id: string;
-  type?: string;
   name: string;
-  description?: string;
+  description: string;
   partNumber: string;
-  manufacturer?: string;
+  manufacturer: string;
   external: boolean;
   interfaces: string[];
   tags: string[];
@@ -23,13 +27,15 @@ export interface Module {
     diagram: string;
   },
   operatingVoltage: [number, number]; // [min, max]
-  pins: Port[];
+  ports: Port[];
 }
 
 export interface ModuleInstance extends Module {
   instanceId: string;
-  position: { x: number; y: number };
+  position: Point;
 }
+
+export type ConnectionMode = 'curved' | 'orthogonal';
 
 export interface Connection {
   id: string;
@@ -42,4 +48,6 @@ export interface Connection {
     portId: string;
   };
   status: 'ok' | 'incompatible' | 'pending';
+  waypoints: Point[];
+  mode: ConnectionMode;
 }

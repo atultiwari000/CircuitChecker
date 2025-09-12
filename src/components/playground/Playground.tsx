@@ -37,7 +37,14 @@ export default function Playground({
 }: PlaygroundProps) {
   const playgroundRef = useRef<HTMLDivElement>(null);
   const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
-  const { modules, addModule, setTransformControls } = usePlayground();
+  const {
+    modules,
+    addModule,
+    setTransformControls,
+    toggleConnectionMode,
+    addWaypoint,
+    setConnectingPort,
+  } = usePlayground();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [recommendationData, setRecommendationData] = useState<{
@@ -57,16 +64,22 @@ export default function Playground({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "i") {
+      if (e.key === "i" && !e.metaKey && !e.ctrlKey) {
         transformRef.current?.zoomIn();
       }
-      if (e.key === "o") {
+      if (e.key === "o" && !e.metaKey && !e.ctrlKey) {
         transformRef.current?.zoomOut();
+      }
+      if (e.key === "w" && !e.metaKey && !e.ctrlKey) {
+        toggleConnectionMode();
+      }
+      if (e.key === "Escape") {
+        setConnectingPort(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [toggleConnectionMode, setConnectingPort, setTransformControls]);
 
   useEffect(() => {
     const handleOpenDialog = (event: Event) => {
@@ -101,19 +114,38 @@ export default function Playground({
     e.preventDefault();
   };
 
+  const handlePlaygroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // If target is not a port or a module, add a waypoint
+    const target = e.target as HTMLElement;
+    if (
+      !target.closest('[class*="port-component"]') &&
+      !target.closest('[class*="hardware-module-card"]')
+    ) {
+      if (playgroundRef.current && transformRef.current) {
+        const { scale, positionX, positionY } =
+          transformRef.current.instance.transformState;
+        const rect = playgroundRef.current.getBoundingClientRect();
+        const x = (e.clientX - rect.left - positionX) / scale;
+        const y = (e.clientY - rect.top - positionY) / scale;
+        addWaypoint({ x, y });
+      }
+    }
+  };
+
   return (
     <main
       ref={playgroundRef}
       className="relative flex-1 overflow-hidden bg-grid"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
+      onClick={handlePlaygroundClick}
       style={{
         backgroundImage:
           "radial-gradient(circle, hsl(var(--border) / 0.3) 1px, transparent 1px)",
         backgroundSize: "20px 20px",
       }}
     >
-      <div className="absolute top-4 left-4 z-20">
+      <div className="absolute top-4 left-4 z-30">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -136,7 +168,7 @@ export default function Playground({
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute top-4 right-4 z-30">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -167,15 +199,21 @@ export default function Playground({
         initialPositionY={0}
         minScale={0.2}
         limitToBounds={false}
+        panning={{
+          activationKeys: ["Space"],
+          excluded: ["input", "button", "a", '[class*="group"]'],
+        }}
       >
         <TransformComponent
           wrapperStyle={{ width: "100%", height: "100%" }}
           contentStyle={{ width: "100%", height: "100%" }}
         >
+          <div style={{ zIndex: 10, position: "relative" }}>
+            {modules.map((module) => (
+              <HardwareModule key={module.instanceId} module={module} />
+            ))}
+          </div>
           <ConnectionLines />
-          {modules.map((module) => (
-            <HardwareModule key={module.instanceId} module={module} />
-          ))}
         </TransformComponent>
       </TransformWrapper>
 

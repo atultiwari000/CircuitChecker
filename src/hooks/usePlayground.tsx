@@ -6,8 +6,15 @@ import {
   useState,
   ReactNode,
   useCallback,
+  useEffect,
 } from "react";
-import type { Module, ModuleInstance, Connection } from "@/lib/types";
+import type {
+  Module,
+  ModuleInstance,
+  Connection,
+  Point,
+  ConnectionMode,
+} from "@/lib/types";
 import { getModuleById } from "@/data/modules";
 import { checkCompatibility } from "@/lib/compatibility";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +34,8 @@ interface PlaygroundContextType {
   connections: Connection[];
   connectingPort: { instanceId: string; portId: string } | null;
   selectedModule: ModuleInstance | null;
+  connectionMode: ConnectionMode;
+  waypoints: Point[];
   addModule: (moduleId: string, position: { x: number; y: number }) => void;
   updateModulePosition: (
     instanceId: string,
@@ -38,6 +47,11 @@ interface PlaygroundContextType {
   setSelectedModule: (module: ModuleInstance | null) => void;
   validateCircuit: () => void;
   setTransformControls: (controls: TransformControls) => void;
+  toggleConnectionMode: () => void;
+  addWaypoint: (point: Point) => void;
+  setConnectingPort: (
+    port: { instanceId: string; portId: string } | null
+  ) => void;
 }
 
 const PlaygroundContext = createContext<PlaygroundContextType | undefined>(
@@ -54,7 +68,21 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
   const [selectedModule, setSelectedModule] = useState<ModuleInstance | null>(
     null
   );
+  const [connectionMode, setConnectionMode] =
+    useState<ConnectionMode>("curved");
+  const [waypoints, setWaypoints] = useState<Point[]>([]);
   const { toast } = useToast();
+  const [showConnectionModeToast, setShowConnectionModeToast] = useState(false);
+
+  useEffect(() => {
+    if (showConnectionModeToast) {
+      toast({
+        title: "Connection Mode Changed",
+        description: `Future connections will be ${connectionMode}.`,
+      });
+      setShowConnectionModeToast(false);
+    }
+  }, [connectionMode, showConnectionModeToast, toast]);
 
   const addModule = (moduleId: string, position: { x: number; y: number }) => {
     const moduleData = getModuleById(moduleId);
@@ -97,6 +125,7 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
   const handlePortClick = (instanceId: string, portId: string) => {
     if (!connectingPort) {
       setConnectingPort({ instanceId, portId });
+      setWaypoints([]);
       toast({
         title: "Starting Connection",
         description: "Select a port on another module to connect.",
@@ -110,6 +139,7 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
           variant: "destructive",
         });
         setConnectingPort(null);
+        setWaypoints([]);
         return;
       }
 
@@ -121,10 +151,13 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
         },
         to: { instanceId, portId },
         status: "pending",
+        waypoints,
+        mode: connectionMode,
       };
 
       setConnections((prev) => [...prev, newConnection]);
       setConnectingPort(null);
+      setWaypoints([]);
       toast({
         title: "Connection Created",
         description: "Connection created. Click 'Validate' to check circuit.",
@@ -194,11 +227,36 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
     []
   );
 
+  const toggleConnectionMode = useCallback(() => {
+    setConnectionMode((prev) => {
+      const newMode = prev === "curved" ? "orthogonal" : "curved";
+      setShowConnectionModeToast(true);
+      return newMode;
+    });
+  }, []);
+
+  const addWaypoint = (point: Point) => {
+    if (connectingPort && connectionMode === "orthogonal") {
+      setWaypoints((prev) => [...prev, point]);
+    }
+  };
+
+  const handleSetConnectingPort = (
+    port: { instanceId: string; portId: string } | null
+  ) => {
+    setConnectingPort(port);
+    if (port === null) {
+      setWaypoints([]);
+    }
+  };
+
   const value = {
     modules,
     connections,
     connectingPort,
     selectedModule,
+    connectionMode,
+    waypoints,
     addModule,
     updateModulePosition,
     handlePortClick,
@@ -207,6 +265,9 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
     setSelectedModule,
     validateCircuit,
     setTransformControls: handleSetTransformControls,
+    toggleConnectionMode,
+    addWaypoint,
+    setConnectingPort: handleSetConnectingPort,
   };
 
   return (

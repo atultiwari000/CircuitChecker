@@ -3,13 +3,54 @@
 import { usePlayground } from "@/hooks/usePlayground";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
+import type { Point, ConnectionMode } from "@/lib/types";
 
 const MODULE_WIDTH = 180;
 const MODULE_HEIGHT = 70;
 
+// Function to generate an orthogonal path
+const getOrthogonalPath = (points: Point[]) => {
+  if (points.length < 2) return "";
+  let path = `M ${points[0].x} ${points[0].y}`;
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    // Create an intermediate point to make the turn
+    if (prev.x !== curr.x && prev.y !== curr.y) {
+      path += ` L ${curr.x} ${prev.y}`;
+    }
+    path += ` L ${curr.x} ${curr.y}`;
+  }
+  return path;
+};
+
+// Function to generate a curved path
+const getCurvedPath = (p1: Point, p2: Point) => {
+  return `M ${p1.x} ${p1.y} C ${p1.x + (p2.x - p1.x) / 2} ${p1.y}, ${
+    p1.x + (p2.x - p1.x) / 2
+  } ${p2.y}, ${p2.x} ${p2.y}`;
+};
+
+const getPathWithWaypoints = (
+  p1: Point,
+  p2: Point,
+  waypoints: Point[] = []
+) => {
+  if (waypoints.length === 0) {
+    return getCurvedPath(p1, p2);
+  }
+  return getOrthogonalPath([p1, ...waypoints, p2]);
+};
+
 export default function ConnectionLines() {
-  const { connections, modules, connectingPort, removeConnection } =
-    usePlayground();
+  const {
+    connections,
+    modules,
+    connectingPort,
+    removeConnection,
+    connectionMode,
+    waypoints,
+  } = usePlayground();
   const [mousePosition, setMousePosition] = useState<{
     x: number;
     y: number;
@@ -35,7 +76,10 @@ export default function ConnectionLines() {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, [connectingPort]);
 
-  const getPortPosition = (instanceId: string, portId: string) => {
+  const getPortPosition = (
+    instanceId: string,
+    portId: string
+  ): Point | null => {
     const module = modules.find((m) => m.instanceId === instanceId);
     if (!module) return null;
 
@@ -56,8 +100,29 @@ export default function ConnectionLines() {
     ? getPortPosition(connectingPort.instanceId, connectingPort.portId)
     : null;
 
+  const getPath = (
+    p1: Point,
+    p2: Point,
+    mode: ConnectionMode,
+    connWaypoints: Point[] = []
+  ) => {
+    if (mode === "orthogonal") {
+      if (connWaypoints.length > 0) {
+        return getOrthogonalPath([p1, ...connWaypoints, p2]);
+      }
+      const midX = p1.x + (p2.x - p1.x) / 2;
+      return getOrthogonalPath([
+        p1,
+        { x: midX, y: p1.y },
+        { x: midX, y: p2.y },
+        p2,
+      ]);
+    }
+    return getCurvedPath(p1, p2);
+  };
+
   return (
-    <svg className="absolute top-0 left-0 h-full w-full pointer-events-none">
+    <svg className="absolute top-0 left-0 h-full w-full pointer-events-none z-20">
       {connections.map((conn) => {
         const p1 = getPortPosition(conn.from.instanceId, conn.from.portId);
         const p2 = getPortPosition(conn.to.instanceId, conn.to.portId);
@@ -67,9 +132,7 @@ export default function ConnectionLines() {
         const isOk = conn.status === "ok";
         const isIncompatible = conn.status === "incompatible";
 
-        const pathData = `M ${p1.x} ${p1.y} C ${p1.x + (p2.x - p1.x) / 2} ${
-          p1.y
-        }, ${p1.x + (p2.x - p1.x) / 2} ${p2.y}, ${p2.x} ${p2.y}`;
+        const pathData = getPath(p1, p2, conn.mode, conn.waypoints);
 
         return (
           <g key={conn.id}>
@@ -98,11 +161,7 @@ export default function ConnectionLines() {
 
       {fromPos && mousePosition && (
         <path
-          d={`M ${fromPos.x} ${fromPos.y} C ${
-            fromPos.x + (mousePosition.x - fromPos.x) / 2
-          } ${fromPos.y}, ${fromPos.x + (mousePosition.x - fromPos.x) / 2} ${
-            mousePosition.y
-          }, ${mousePosition.x} ${mousePosition.y}`}
+          d={getPath(fromPos, mousePosition, connectionMode, waypoints)}
           strokeWidth="2"
           fill="none"
           className="stroke-primary"
