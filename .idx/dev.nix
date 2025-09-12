@@ -20,6 +20,7 @@
     pkgs.nodejs
     pkgs.gh
     pkgs.openssh
+    pkgs.docker
   ];
   # Sets environment variables in the workspace
   env = {};
