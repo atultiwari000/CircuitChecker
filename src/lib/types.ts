@@ -10,10 +10,11 @@ export interface Port {
 
 export interface Module {
   id: string;
+  type?: string;
   name: string;
-  description: string;
+  description?: string;
   partNumber: string;
-  manufacturer: string;
+  manufacturer?: string;
   external: boolean;
   interfaces: string[];
   tags: string[];
@@ -22,7 +23,7 @@ export interface Module {
     diagram: string;
   },
   operatingVoltage: [number, number]; // [min, max]
-  ports: Port[];
+  pins: Port[];
 }
 
 export interface ModuleInstance extends Module {

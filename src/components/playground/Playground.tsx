@@ -19,6 +19,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import type { ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 
 interface PlaygroundProps {
   isLibraryOpen: boolean;
@@ -34,13 +36,37 @@ export default function Playground({
   toggleInspector,
 }: PlaygroundProps) {
   const playgroundRef = useRef<HTMLDivElement>(null);
-  const { modules, addModule } = usePlayground();
+  const transformRef = useRef<ReactZoomPanPinchRef | null>(null);
+  const { modules, addModule, setTransformControls } = usePlayground();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [recommendationData, setRecommendationData] = useState<{
     module: Module;
     reason: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (transformRef.current) {
+      setTransformControls({
+        zoomIn: () => transformRef.current?.zoomIn(),
+        zoomOut: () => transformRef.current?.zoomOut(),
+        resetTransform: () => transformRef.current?.resetTransform(),
+      });
+    }
+  }, [setTransformControls]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "i") {
+        transformRef.current?.zoomIn();
+      }
+      if (e.key === "o") {
+        transformRef.current?.zoomOut();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const handleOpenDialog = (event: Event) => {
@@ -58,10 +84,15 @@ export default function Playground({
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const moduleId = e.dataTransfer.getData("text/plain");
-    if (moduleId && playgroundRef.current) {
+    if (moduleId && playgroundRef.current && transformRef.current) {
+      const { scale, positionX, positionY } =
+        transformRef.current.instance.transformState;
       const rect = playgroundRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left - 90; // center the module
-      const y = e.clientY - rect.top - 35;
+
+      // Adjust for pan and zoom
+      const x = (e.clientX - rect.left - positionX) / scale - 90;
+      const y = (e.clientY - rect.top - positionY) / scale - 35;
+
       addModule(moduleId, { x, y });
     }
   };
@@ -129,10 +160,25 @@ export default function Playground({
         </TooltipProvider>
       </div>
 
-      <ConnectionLines />
-      {modules.map((module) => (
-        <HardwareModule key={module.instanceId} module={module} />
-      ))}
+      <TransformWrapper
+        ref={transformRef}
+        initialScale={1}
+        initialPositionX={0}
+        initialPositionY={0}
+        minScale={0.2}
+        limitToBounds={false}
+      >
+        <TransformComponent
+          wrapperStyle={{ width: "100%", height: "100%" }}
+          contentStyle={{ width: "100%", height: "100%" }}
+        >
+          <ConnectionLines />
+          {modules.map((module) => (
+            <HardwareModule key={module.instanceId} module={module} />
+          ))}
+        </TransformComponent>
+      </TransformWrapper>
+
       <RecommendationDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}

@@ -16,6 +16,12 @@ import { Button } from "@/components/ui/button";
 const generateId = () =>
   `id_${new Date().getTime()}_${Math.random().toString(36).substr(2, 9)}`;
 
+interface TransformControls {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetTransform: () => void;
+}
+
 interface PlaygroundContextType {
   modules: ModuleInstance[];
   connections: Connection[];
@@ -31,6 +37,7 @@ interface PlaygroundContextType {
   removeModule: (instanceId: string) => void;
   setSelectedModule: (module: ModuleInstance | null) => void;
   validateCircuit: () => void;
+  setTransformControls: (controls: TransformControls) => void;
 }
 
 const PlaygroundContext = createContext<PlaygroundContextType | undefined>(
@@ -180,6 +187,13 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const handleSetTransformControls = useCallback(
+    (controls: TransformControls) => {
+      // This function is kept for now in case we need to pass other controls in the future
+    },
+    []
+  );
+
   const value = {
     modules,
     connections,
@@ -192,6 +206,7 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
     removeModule,
     setSelectedModule,
     validateCircuit,
+    setTransformControls: handleSetTransformControls,
   };
 
   return (
