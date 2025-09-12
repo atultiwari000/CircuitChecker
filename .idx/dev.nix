@@ -7,6 +7,19 @@
   packages = [
     pkgs.nodejs_20
     pkgs.zulu
+    pkgs.python3
+    pkgs.cmake
+    pkgs.git
+    pkgs.bzip2
+    pkgs.xz
+    pkgs.autoconf
+    pkgs.automake
+    pkgs.libtool
+    pkgs.bison
+    pkgs.gnumake
+    pkgs.nodejs
+    pkgs.gh
+    pkgs.openssh
   ];
   # Sets environment variables in the workspace
   env = {};
