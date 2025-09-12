@@ -7,8 +7,9 @@ import ComponentLibrary from '@/components/layout/component-library';
 import Canvas from '@/components/layout/canvas';
 import PropertiesPanel from '@/components/layout/properties-panel';
 import AiSuggestionsDialog from '@/components/ai-suggestions-dialog';
+import SpiceRunner from '@/components/spice-runner';
 import { Button } from '@/components/ui/button';
-import { Bot, PanelLeft, PanelRight } from 'lucide-react';
+import { Bot, PanelLeft, PanelRight, ChevronUp, ChevronDown } from 'lucide-react';
 
 export default function Home() {
   const {
@@ -35,6 +36,7 @@ export default function Home() {
   const [showLibrary, setShowLibrary] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [showAiDialog, setShowAiDialog] = useState(false);
+  const [showSpiceRunner, setShowSpiceRunner] = useState(false);
 
   const selectedComponent = circuit.components.find(c => c.id === selectedComponentId);
   const validationFailures = validationResults
@@ -102,6 +104,20 @@ export default function Home() {
           onClose={() => setShowAiDialog(false)}
         />
       )}
+
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <div className="flex justify-center">
+            <Button variant="secondary" size="sm" className="rounded-b-none rounded-t-lg" onClick={() => setShowSpiceRunner(p => !p)}>
+                {showSpiceRunner ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronUp className="h-4 w-4 mr-2" />}
+                SPICE Test Runner
+            </Button>
+        </div>
+        {showSpiceRunner && (
+            <div className="bg-card border-t p-4 h-96">
+                <SpiceRunner />
+            </div>
+        )}
+      </div>
     </div>
   );
 }
