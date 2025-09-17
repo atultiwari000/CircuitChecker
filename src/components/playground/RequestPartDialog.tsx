@@ -54,45 +54,74 @@ export default function RequestPartDialog({
 
   // Replace with your actual n8n webhook URL
   const N8N_WEBHOOK_URL =
-    process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL ||
-    "https://atultiwari.app.n8n.cloud/webhook/search";
+    "https://atultiwari.app.n8n.cloud/webhook/d210c526-6871-46ab-8669";
+
+  // const handleSearch = async () => {
+  //   if (!searchQuery.trim()) return;
+
+  //   setIsLoading(true);
+  //   setSearchResults([]);
+  //   setCurrentSessionId(null);
+  //   console.log(`Searching for: ${searchQuery}`);
+
+  //   try {
+  //     // Step 1: Call n8n webhook to trigger search and store in Supabase
+  //     const response = await fetch(N8N_WEBHOOK_URL, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ query: searchQuery.trim() }),
+  //     });
+
+  //     if (!response.ok) {
+  //       throw new Error(`Search webhook failed: ${response.status}`);
+  //     }
+
+  //     const { sessionId } = await response.json();
+  //     console.log(`Received session ID: ${sessionId}`);
+  //     setCurrentSessionId(sessionId);
+
+  //     // Step 2: Fetch results from Supabase using the session ID
+  //     await fetchResultsFromSupabase(sessionId);
+  //   } catch (error) {
+  //     console.error("Failed to search for parts:", error);
+  //     toast({
+  //       variant: "destructive",
+  //       title: "Search Failed",
+  //       description:
+  //         error instanceof Error
+  //           ? error.message
+  //           : "Could not fetch parts from the search service.",
+  //     });
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery) return;
 
     setIsLoading(true);
     setSearchResults([]);
-    setCurrentSessionId(null);
-    console.log(`Searching for: ${searchQuery}`);
 
     try {
-      // Step 1: Call n8n webhook to trigger search and store in Supabase
-      const response = await fetch(N8N_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: searchQuery.trim() }),
-      });
+      const response = await fetch(
+        "https://atultiwari.app.n8n.cloud/webhook/d210c526-6871-46ab-8669-40f7b0a85e26",
+        {
+          method: "POST", // 👈 important
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: searchQuery }),
+        }
+      );
 
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`Search webhook failed: ${response.status}`);
-      }
 
-      const { sessionId } = await response.json();
-      console.log(`Received session ID: ${sessionId}`);
-      setCurrentSessionId(sessionId);
-
-      // Step 2: Fetch results from Supabase using the session ID
-      await fetchResultsFromSupabase(sessionId);
+      const data = await response.json();
+      setSearchResults(data);
     } catch (error) {
       console.error("Failed to search for parts:", error);
-      toast({
-        variant: "destructive",
-        title: "Search Failed",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Could not fetch parts from the search service.",
-      });
     } finally {
       setIsLoading(false);
     }
