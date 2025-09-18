@@ -7,6 +7,7 @@ import {
   ReactNode,
   useCallback,
   useEffect,
+  useRef,
 } from "react";
 import type {
   Module,
@@ -14,11 +15,15 @@ import type {
   Connection,
   Point,
   ConnectionMode,
+  ViewTransform,
 } from "@/lib/types";
-import { getModuleById } from "@/data/modules";
+// import { getModuleById } from "@/data/modules";
 import { checkCompatibility } from "@/lib/compatibility";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+
+const MODULE_WIDTH = 250;
+const CARD_HEIGHT = 130;
 
 const generateId = () =>
   `id_${new Date().getTime()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -31,6 +36,7 @@ interface TransformControls {
 
 interface PlaygroundContextType {
   modules: ModuleInstance[];
+  allModules: Module[];
   connections: Connection[];
   connectingPort: { instanceId: string; portId: string } | null;
   selectedModule: ModuleInstance | null;
@@ -45,6 +51,7 @@ interface PlaygroundContextType {
   ) => void;
   handlePortClick: (instanceId: string, portId: string) => void;
   removeConnection: (connectionId: string) => void;
+  playgroundRef: React.RefObject<HTMLDivElement>;
   removeModule: (instanceId: string) => void;
   setSelectedModule: (module: ModuleInstance | null) => void;
   validateCircuit: () => void;
@@ -55,14 +62,22 @@ interface PlaygroundContextType {
     port: { instanceId: string; portId: string } | null
   ) => void;
   toggleCutMode: () => void;
+  panToModule: (instanceId: string) => void;
 }
 
 const PlaygroundContext = createContext<PlaygroundContextType | undefined>(
   undefined
 );
 
-export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
+export const PlaygroundProvider = ({
+  children,
+  initialModules = [],
+}: {
+  children: ReactNode;
+  initialModules: Module[];
+}) => {
   const [modules, setModules] = useState<ModuleInstance[]>([]);
+  const [allModules] = useState<Module[]>(initialModules);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [connectingPort, setConnectingPort] = useState<{
     instanceId: string;
@@ -79,6 +94,19 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
   const [transformControls, setTransformControls] =
     useState<TransformControls | null>(null);
   const [isCutMode, setIsCutMode] = useState(false);
+  const [viewTransform, setViewTransform] = useState<ViewTransform>({
+    x: 0,
+    y: 0,
+    scale: 1,
+  });
+  const playgroundRef = useRef<HTMLDivElement>(null);
+
+  const getModuleById = useCallback(
+    (id: string) => {
+      return allModules.find((m) => m.id === id);
+    },
+    [allModules]
+  );
 
   useEffect(() => {
     if (showConnectionModeToast) {
@@ -135,6 +163,38 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
       description: "The module has been cut from the circuit.",
     });
   };
+
+  const panToModule = useCallback(
+    (instanceId: string) => {
+      const module = modules.find((m) => m.instanceId === instanceId);
+      if (!module || !playgroundRef.current) return;
+
+      const playgroundRect = playgroundRef.current.getBoundingClientRect();
+      const newX =
+        -module.position.x * viewTransform.scale +
+        playgroundRect.width / 2 -
+        (MODULE_WIDTH * viewTransform.scale) / 2;
+      const newY =
+        -module.position.y * viewTransform.scale +
+        playgroundRect.height / 2 -
+        (CARD_HEIGHT * viewTransform.scale) / 2;
+
+      const innerPlayground =
+        playgroundRef.current.querySelector<HTMLDivElement>(":scope > div");
+      if (innerPlayground) {
+        innerPlayground.style.transition = "transform 0.5s ease-in-out";
+        setViewTransform((prev) => ({ ...prev, x: newX, y: newY }));
+        setTimeout(() => {
+          innerPlayground.style.transition = "";
+        }, 500);
+      } else {
+        setViewTransform((prev) => ({ ...prev, x: newX, y: newY }));
+      }
+
+      setSelectedModule(instanceId ? module : null);
+    },
+    [modules, viewTransform.scale]
+  );
 
   const handlePortClick = (instanceId: string, portId: string) => {
     if (isCutMode) {
@@ -314,6 +374,9 @@ export const PlaygroundProvider = ({ children }: { children: ReactNode }) => {
     addWaypoint,
     setConnectingPort: handleSetConnectingPort,
     toggleCutMode,
+    allModules,
+    panToModule,
+    playgroundRef,
   };
 
   return (

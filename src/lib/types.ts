@@ -22,12 +22,12 @@ export interface Module {
   external: boolean;
   interfaces: string[];
   tags: string[];
-  documentation: {
-    datasheet: string;
-    diagram: string;
-  },
+  datasheet?: string;
+  imageUrl?: string;
   operatingVoltage: [number, number]; // [min, max]
   ports: Port[];
+  status?: 'unreviewed';
+  instanceId?: string; 
 }
 
 export interface ModuleInstance extends Module {
@@ -50,4 +50,11 @@ export interface Connection {
   status: 'ok' | 'incompatible' | 'pending';
   waypoints: Point[];
   mode: ConnectionMode;
+}
+
+
+export interface ViewTransform {
+  x: number;
+  y: number;
+  scale: number;
 }

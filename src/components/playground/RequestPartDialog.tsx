@@ -63,7 +63,7 @@ export default function RequestPartDialog({
     console.log(`Searching for: ${searchQuery}`);
 
     try {
-      const response = await fetch(N8N_WEBHOOK_URL, {
+      const response = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL!, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: searchQuery.trim() }),

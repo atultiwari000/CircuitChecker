@@ -28,10 +28,12 @@ const ModuleCard = ({
   module,
   draggable = false,
   variant = "default",
+  onClick,
 }: {
   module: Module;
   draggable?: boolean;
   variant?: "default" | "compact";
+  onClick?: () => void;
 }) => {
   const handleDragStart = (
     e: React.DragEvent<HTMLDivElement>,
@@ -68,6 +70,7 @@ const ModuleCard = ({
     <div
       draggable={draggable}
       onDragStart={(e) => handleDragStart(e, module.id)}
+      onClick={onClick}
       className="group relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-card via-card to-card/80 p-4 transition-all duration-300 hover:border-primary/30 hover:shadow-xl hover:shadow-primary/10 hover:-translate-y-1 cursor-grab active:cursor-grabbing"
     >
       {/* Decorative gradient background */}
@@ -109,8 +112,13 @@ const ModuleCard = ({
         {/* Part info */}
         <div className="flex items-center gap-2 text-xs">
           <Badge variant="outline" className="font-mono text-xs px-2 py-0.5">
-            {module.partNumber}
+            {module.id}
           </Badge>
+          {module.status === "unreviewed" && (
+            <Badge variant="destructive" className="text-xs px-2 py-0.5">
+              Unreviewed
+            </Badge>
+          )}
         </div>
 
         {/* Interfaces */}
@@ -141,21 +149,25 @@ const ModuleCard = ({
   );
 };
 
-export default function ComponentLibrary() {
+export default function ComponentLibrary({
+  allModules,
+}: {
+  allModules: Module[];
+}) {
   const [searchTerm, setSearchTerm] = useState("");
-  const { modules: projectModules } = usePlayground();
+  const { modules: projectModules, panToModule } = usePlayground();
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
 
   const filteredLibraryModules = useMemo(() => {
-    if (!searchTerm) return MODULES;
+    if (!searchTerm) return allModules;
     const lowerSearch = searchTerm.toLowerCase();
-    return MODULES.filter(
+    return allModules.filter(
       (module) =>
         module.name.toLowerCase().includes(lowerSearch) ||
-        module.description?.toLowerCase().includes(lowerSearch) ||
-        module.manufacturer?.toLowerCase().includes(lowerSearch)
+        module.id.toLowerCase().includes(lowerSearch) ||
+        module.description?.toLowerCase().includes(lowerSearch)
     );
-  }, [searchTerm]);
+  }, [searchTerm, allModules]);
 
   const filteredProjectModules = useMemo(() => {
     if (!searchTerm) return projectModules;
@@ -163,17 +175,34 @@ export default function ComponentLibrary() {
     return projectModules.filter(
       (module) =>
         module.name.toLowerCase().includes(lowerSearch) ||
-        module.description?.toLowerCase().includes(lowerSearch) ||
-        module.manufacturer?.toLowerCase().includes(lowerSearch)
+        module.description?.toLowerCase().includes(lowerSearch)
     );
   }, [projectModules, searchTerm]);
 
   return (
-    <aside className="hidden md:flex w-[420px] flex-col border-r bg-gradient-to-b from-sidebar via-sidebar/95 to-sidebar/90 h-screen">
+    <aside className="w-[420px] flex-col border-r bg-card h-full flex">
       <div className="flex flex-col h-full">
-        <Tabs defaultValue="library" className="flex flex-col h-full">
-          {/* Enhanced header with gradient */}
-          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b shrink-0">
+        <Tabs defaultValue="library" className="flex flex-col flex-1 min-h-0">
+          <div className="p-4 border-b shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search components..."
+                className="pl-10 pr-4 h-10 bg-background/80 border-border/50 focus:border-primary/30 focus:bg-background transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="border-b shrink-0">
             <TabsList className="w-full bg-transparent border-0 h-12 p-1">
               <TabsTrigger
                 value="library"
@@ -199,66 +228,34 @@ export default function ComponentLibrary() {
               </TabsTrigger>
             </TabsList>
           </div>
-
-          {/* Enhanced search bar */}
-          <div className="p-4 space-y-3 bg-background/50 backdrop-blur-sm border-b shrink-0">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search components..."
-                className="pl-10 pr-4 h-10 bg-background/80 border-border/50 focus:border-primary/30 focus:bg-background transition-all"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Tab content - this is the main scrollable area */}
           <div className="flex-1 min-h-0 flex flex-col">
             <TabsContent
               value="library"
-              className="flex-1 flex flex-col min-h-0 mt-0"
+              className="flex-1 min-h-0 mt-0 flex flex-col"
             >
-              {/* Scrollable content */}
-              <div className="flex-1 overflow-hidden">
-                <ScrollArea className="h-full">
-                  <div className="px-4 py-4">
-                    <div className="grid gap-3">
-                      {filteredLibraryModules.length > 0 ? (
-                        filteredLibraryModules.map((module) => (
-                          <ModuleCard
-                            key={module.id}
-                            module={module}
-                            draggable
-                          />
-                        ))
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-12 text-center">
-                          <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-                            <Search className="h-6 w-6 text-muted-foreground" />
-                          </div>
-                          <p className="text-sm font-medium text-muted-foreground">
-                            No modules found
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Try adjusting your search
-                          </p>
+              <ScrollArea className="flex-1">
+                <div className="px-4 py-4">
+                  <div className="grid gap-3">
+                    {filteredLibraryModules.length > 0 ? (
+                      filteredLibraryModules.map((module) => (
+                        <ModuleCard key={module.id} module={module} draggable />
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                          <Search className="h-6 w-6 text-muted-foreground" />
                         </div>
-                      )}
-                    </div>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          No modules found
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Try adjusting your search
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </ScrollArea>
-              </div>
-
-              {/* Fixed Request part button at bottom */}
+                </div>
+              </ScrollArea>
               <div className="shrink-0 p-4 border-t bg-background/95 backdrop-blur-sm">
                 <Button
                   className="w-full h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 font-medium"
@@ -269,47 +266,44 @@ export default function ComponentLibrary() {
                 </Button>
               </div>
             </TabsContent>
-
-            {/* Project content */}
-            <TabsContent
-              value="project"
-              className="flex-1 flex flex-col min-h-0 mt-0"
-            >
-              <div className="flex-1 overflow-hidden">
-                <ScrollArea className="h-full">
-                  <div className="px-4 py-4">
-                    <div className="grid gap-3">
-                      {filteredProjectModules.length > 0 ? (
-                        filteredProjectModules.map((module) => (
-                          <ModuleCard key={module.instanceId} module={module} />
-                        ))
-                      ) : (
-                        <div className="flex flex-col items-center justify-center py-16 text-center">
-                          <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-4">
-                            <Package className="h-8 w-8 text-primary/60" />
-                          </div>
-                          <p className="text-sm font-medium">
-                            No components in project
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-2 max-w-[200px]">
-                            Drag components from the library to get started
-                          </p>
-                          {searchTerm && (
-                            <Button
-                              variant="link"
-                              size="sm"
-                              className="mt-3"
-                              onClick={() => setSearchTerm("")}
-                            >
-                              Clear search
-                            </Button>
-                          )}
+            <TabsContent value="project" className="flex-1 min-h-0 mt-0">
+              <ScrollArea className="h-full">
+                <div className="px-4 py-4">
+                  <div className="grid gap-3">
+                    {filteredProjectModules.length > 0 ? (
+                      filteredProjectModules.map((module) => (
+                        <ModuleCard
+                          key={module.instanceId}
+                          module={module}
+                          onClick={() => panToModule(module.instanceId)}
+                        />
+                      ))
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <div className="h-16 w-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-4">
+                          <Package className="h-8 w-8 text-primary/60" />
                         </div>
-                      )}
-                    </div>
+                        <p className="text-sm font-medium">
+                          No components in project
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2 max-w-[200px]">
+                          Drag components from the library to get started
+                        </p>
+                        {searchTerm && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="mt-3"
+                            onClick={() => setSearchTerm("")}
+                          >
+                            Clear search
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </ScrollArea>
-              </div>
+                </div>
+              </ScrollArea>
             </TabsContent>
           </div>
         </Tabs>

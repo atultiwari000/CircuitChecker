@@ -7,8 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { ScrollArea } from "../ui/scroll-area";
 import { ExternalLink, Book, CircuitBoard } from "lucide-react";
 import { Separator } from "../ui/separator";
+import type { ModuleInstance } from "@/lib/types";
 
-export default function Inspector() {
+interface PropertiesPanelProps {
+  module: ModuleInstance | null;
+}
+
+const Inspector = ({ module }: PropertiesPanelProps) => {
   const { selectedModule } = usePlayground();
 
   if (!selectedModule) {
@@ -79,7 +84,7 @@ export default function Inspector() {
             <CardContent className="flex gap-2">
               <Button variant="outline" asChild>
                 <a
-                  href={selectedModule.documentation.datasheet}
+                  href={selectedModule.datasheet}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -89,7 +94,7 @@ export default function Inspector() {
               </Button>
               <Button variant="outline" asChild>
                 <a
-                  href={selectedModule.documentation.diagram}
+                  href={selectedModule.imageUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -130,4 +135,6 @@ export default function Inspector() {
       </ScrollArea>
     </aside>
   );
-}
+};
+
+export default Inspector;
