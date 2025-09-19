@@ -6,6 +6,11 @@ import type { ModuleInstance } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
+export const MODULE_WIDTH = 180;
+export const BASE_MODULE_HEIGHT = 70;
+export const MIN_PORT_SPACING = 20; // Minimum spacing between ports
+const PORT_PADDING = 16; // Padding from top/bottom edges of module
+
 // Updated Port interface to match your data structure
 interface Port {
   id: string;
@@ -19,61 +24,26 @@ interface HardwareModuleProps {
   module: ModuleInstance;
 }
 
-const PortComponent = ({
-  port,
-  instanceId,
-  side,
-}: {
-  port: Port;
-  instanceId: string;
-  side: "left" | "right";
-}) => {
-  const { handlePortClick, connectingPort } = usePlayground();
-  const isConnecting =
-    connectingPort?.instanceId === instanceId &&
-    connectingPort?.portId === port.id;
-
-  // Get port color based on type
-  const getPortColor = (type: string) => {
-    switch (type) {
-      case "power_in":
-        return "border-red-500 hover:bg-red-500";
-      case "data_in":
-        return "border-blue-500 hover:bg-blue-500";
-      case "data_out":
-        return "border-green-500 hover:bg-green-500";
-      case "data_io":
-        return "border-yellow-500 hover:bg-yellow-500";
-      case "nc":
-        return "border-gray-400 hover:bg-gray-400 opacity-50";
-      default:
-        return "border-primary hover:bg-primary";
-    }
-  };
-
-  return (
-    <div
-      className={cn(
-        "group absolute",
-        side === "left" ? "-left-1.5" : "-right-1.5"
-      )}
-      style={{ top: "50%", transform: "translateY(-50%)" }}
-    >
-      <div
-        onClick={(e) => {
-          e.stopPropagation();
-          handlePortClick(instanceId, port.id);
-        }}
-        className={cn(
-          "h-3 w-3 rounded-full border-2 bg-background cursor-pointer transition-colors",
-          isConnecting
-            ? "bg-primary ring-2 ring-primary-foreground"
-            : getPortColor(port.type)
-        )}
-        title={`${port.name} (${port.type})`}
-      />
-    </div>
-  );
+// Helper function to get port color based on type
+const getPortColor = (type: string) => {
+  switch (type) {
+    case "power_in":
+      return "border-red-500 hover:bg-red-500";
+    case "power_out":
+      return "border-orange-500 hover:bg-orange-500";
+    case "data_in":
+      return "border-blue-500 hover:bg-blue-500";
+    case "data_out":
+      return "border-green-500 hover:bg-green-500";
+    case "data_io":
+      return "border-yellow-500 hover:bg-yellow-500";
+    case "gnd":
+      return "border-gray-600 hover:bg-gray-600";
+    case "nc":
+      return "border-gray-400 hover:bg-gray-400 opacity-50";
+    default:
+      return "border-primary hover:bg-primary";
+  }
 };
 
 export default function HardwareModule({ module }: HardwareModuleProps) {
@@ -89,10 +59,7 @@ export default function HardwareModule({ module }: HardwareModuleProps) {
   const dragOffset = useRef({ x: 0, y: 0 });
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (
-      (e.target as HTMLElement).closest('[class*="rounded-full"]') ||
-      isCutMode
-    ) {
+    if ((e.target as HTMLElement).closest('[data-port="true"]') || isCutMode) {
       return;
     }
     setSelectedModule(module);
@@ -144,29 +111,34 @@ export default function HardwareModule({ module }: HardwareModuleProps) {
     };
   }, [isDragging]);
 
+  const onPortClick = (e: React.MouseEvent, portId: string) => {
+    e.stopPropagation();
+    handlePortClick(module.instanceId, portId);
+  };
+
   // Ensure ports exist and have the correct structure
   const ports = module.ports || [];
   const leftPorts = ports.filter((p) => p.position === "left");
   const rightPorts = ports.filter((p) => p.position === "right");
+  const topPorts = ports.filter((p) => p.position === "top");
+  const bottomPorts = ports.filter((p) => p.position === "bottom");
 
-  // Calculate port spacing for better visual distribution
-  const getPortStyle = (
-    index: number,
-    total: number,
-    side: "left" | "right"
-  ) => {
-    if (total === 1) {
-      return { top: "50%", transform: "translateY(-50%)" };
+  // Calculate the maximum number of ports on vertical sides for dynamic height
+  const maxVerticalPorts = Math.max(leftPorts.length, rightPorts.length);
+
+  // Calculate dynamic module height based on number of ports
+  const calculateModuleHeight = () => {
+    if (maxVerticalPorts <= 1) {
+      return BASE_MODULE_HEIGHT;
     }
 
-    const spacing = 60 / (total + 1); // Distribute ports across 60px height
-    const topOffset = spacing * (index + 1);
-
-    return {
-      top: `${topOffset}px`,
-      transform: "none",
-    };
+    // Calculate required height based on ports and spacing
+    const requiredHeight =
+      (maxVerticalPorts - 1) * MIN_PORT_SPACING + PORT_PADDING * 2;
+    return Math.max(BASE_MODULE_HEIGHT, requiredHeight);
   };
+
+  const moduleHeight = calculateModuleHeight();
 
   return (
     <div
@@ -178,11 +150,12 @@ export default function HardwareModule({ module }: HardwareModuleProps) {
     >
       <Card
         className={cn(
-          "w-[180px] h-[70px] border-2 bg-card/80 backdrop-blur-sm shadow-lg hover:border-primary/50 transition-colors flex items-center justify-center p-2 relative",
+          "border-2 bg-card/80 backdrop-blur-sm shadow-lg hover:border-primary/50 transition-colors flex items-center justify-center p-2 relative",
           isCutMode
             ? "cursor-crosshair border-destructive hover:border-destructive"
             : "cursor-grab"
         )}
+        style={{ width: `${MODULE_WIDTH}px`, height: `${moduleHeight}px` }}
       >
         <div className="text-center">
           <p className="font-headline text-sm font-semibold">{module.name}</p>
@@ -193,82 +166,149 @@ export default function HardwareModule({ module }: HardwareModuleProps) {
           )}
         </div>
 
-        {/* Left ports */}
-        {leftPorts.map((port, index) => {
-          const isConnecting =
-            connectingPort?.instanceId === module.instanceId &&
-            connectingPort?.portId === port.id;
+        {/* Ports Container */}
+        <div className="absolute inset-0">
+          {/* Left Ports */}
+          {leftPorts.map((port, index) => {
+            const isConnecting =
+              connectingPort?.instanceId === module.instanceId &&
+              connectingPort?.portId === port.id;
 
-          return (
-            <div
-              key={port.id}
-              className="absolute -left-1.5"
-              style={getPortStyle(index, leftPorts.length, "left")}
-            >
+            let topPosition;
+            if (leftPorts.length === 1) {
+              topPosition = "50%";
+            } else {
+              // Calculate position within the padded area
+              const availableHeight = moduleHeight - PORT_PADDING * 2;
+              const spacing = availableHeight / (leftPorts.length - 1);
+              const pixelOffset = PORT_PADDING + spacing * index;
+              topPosition = `${pixelOffset}px`;
+            }
+
+            return (
               <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePortClick(module.instanceId, port.id);
-                }}
+                key={port.id}
+                data-port="true"
+                onClick={(e) => onPortClick(e, port.id)}
                 className={cn(
-                  "h-3 w-3 rounded-full border-2 bg-background cursor-pointer transition-colors",
+                  "absolute h-3 w-3 rounded-full border-2 bg-background cursor-pointer transition-colors z-10",
                   isConnecting
                     ? "bg-primary ring-2 ring-primary-foreground"
                     : getPortColor(port.type)
                 )}
+                style={{
+                  top: topPosition,
+                  left: "0%",
+                  transform:
+                    leftPorts.length === 1
+                      ? "translate(-50%, -50%)"
+                      : "translate(-50%, -50%)",
+                }}
                 title={`${port.name} (${port.type})`}
               />
-            </div>
-          );
-        })}
+            );
+          })}
 
-        {/* Right ports */}
-        {rightPorts.map((port, index) => {
-          const isConnecting =
-            connectingPort?.instanceId === module.instanceId &&
-            connectingPort?.portId === port.id;
+          {/* Right Ports */}
+          {rightPorts.map((port, index) => {
+            const isConnecting =
+              connectingPort?.instanceId === module.instanceId &&
+              connectingPort?.portId === port.id;
 
-          return (
-            <div
-              key={port.id}
-              className="absolute -right-1.5"
-              style={getPortStyle(index, rightPorts.length, "right")}
-            >
+            let topPosition;
+            if (rightPorts.length === 1) {
+              topPosition = "50%";
+            } else {
+              // Calculate position within the padded area
+              const availableHeight = moduleHeight - PORT_PADDING * 2;
+              const spacing = availableHeight / (rightPorts.length - 1);
+              const pixelOffset = PORT_PADDING + spacing * index;
+              topPosition = `${pixelOffset}px`;
+            }
+
+            return (
               <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePortClick(module.instanceId, port.id);
-                }}
+                key={port.id}
+                data-port="true"
+                onClick={(e) => onPortClick(e, port.id)}
                 className={cn(
-                  "h-3 w-3 rounded-full border-2 bg-background cursor-pointer transition-colors",
+                  "absolute h-3 w-3 rounded-full border-2 bg-background cursor-pointer transition-colors z-10",
                   isConnecting
                     ? "bg-primary ring-2 ring-primary-foreground"
                     : getPortColor(port.type)
                 )}
+                style={{
+                  top: topPosition,
+                  left: "100%",
+                  transform:
+                    rightPorts.length === 1
+                      ? "translate(-50%, -50%)"
+                      : "translate(-50%, -50%)",
+                }}
                 title={`${port.name} (${port.type})`}
               />
-            </div>
-          );
-        })}
+            );
+          })}
+
+          {/* Top Ports */}
+          {topPorts.map((port, index) => {
+            const isConnecting =
+              connectingPort?.instanceId === module.instanceId &&
+              connectingPort?.portId === port.id;
+
+            const offset = (index + 1) / (topPorts.length + 1);
+
+            return (
+              <div
+                key={port.id}
+                data-port="true"
+                onClick={(e) => onPortClick(e, port.id)}
+                className={cn(
+                  "absolute h-3 w-3 rounded-full border-2 bg-background cursor-pointer transition-colors z-10",
+                  isConnecting
+                    ? "bg-primary ring-2 ring-primary-foreground"
+                    : getPortColor(port.type)
+                )}
+                style={{
+                  top: "0%",
+                  left: `${offset * 100}%`,
+                  transform: "translate(-50%, -50%)",
+                }}
+                title={`${port.name} (${port.type})`}
+              />
+            );
+          })}
+
+          {/* Bottom Ports */}
+          {bottomPorts.map((port, index) => {
+            const isConnecting =
+              connectingPort?.instanceId === module.instanceId &&
+              connectingPort?.portId === port.id;
+
+            const offset = (index + 1) / (bottomPorts.length + 1);
+
+            return (
+              <div
+                key={port.id}
+                data-port="true"
+                onClick={(e) => onPortClick(e, port.id)}
+                className={cn(
+                  "absolute h-3 w-3 rounded-full border-2 bg-background cursor-pointer transition-colors z-10",
+                  isConnecting
+                    ? "bg-primary ring-2 ring-primary-foreground"
+                    : getPortColor(port.type)
+                )}
+                style={{
+                  top: "100%",
+                  left: `${offset * 100}%`,
+                  transform: "translate(-50%, -50%)",
+                }}
+                title={`${port.name} (${port.type})`}
+              />
+            );
+          })}
+        </div>
       </Card>
     </div>
   );
-
-  // Helper function moved inside component to access connectingPort
-  function getPortColor(type: string) {
-    switch (type) {
-      case "power_in":
-        return "border-red-500 hover:bg-red-500";
-      case "data_in":
-        return "border-blue-500 hover:bg-blue-500";
-      case "data_out":
-        return "border-green-500 hover:bg-green-500";
-      case "data_io":
-        return "border-yellow-500 hover:bg-yellow-500";
-      case "nc":
-        return "border-gray-400 hover:bg-gray-400 opacity-50";
-      default:
-        return "border-primary hover:bg-primary";
-    }
-  }
 }
