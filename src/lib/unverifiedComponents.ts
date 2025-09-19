@@ -1,8 +1,7 @@
-import { createClient } from '@/lib/server'; 
+import { supabase } from '@/lib/server'; 
 import type { Module } from '@/lib/types';
 
 export async function getUnverifiedComponents(): Promise<Module[]> {
-  const supabase = createClient();
 
   const { data, error } = await supabase
     .from('unverified_components')
@@ -37,7 +36,6 @@ export async function getUnverifiedComponents(): Promise<Module[]> {
 export function subscribeToUnverifiedComponents(
   callback: (modules: Module[]) => void
 ) {
-  const supabase = createClient();
   
   const subscription = supabase
     .channel('unverified_components_changes')

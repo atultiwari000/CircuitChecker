@@ -1,28 +1,29 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MODULES } from "@/data/modules";
 import { Badge } from "@/components/ui/badge";
 import {
   Search,
-  RefreshCw,
-  Filter,
   Cpu,
   Zap,
   Package,
   Plus,
   Sparkles,
   ChevronRight,
-  Grid3x3,
-  List,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "../ui/button";
 import { usePlayground } from "@/hooks/usePlayground";
 import type { Module } from "@/lib/types";
 import RequestPartDialog from "@/components/playground/RequestPartDialog";
+import handleRefreshModules from "@/components/playground/component-refresh";
+
+interface ComponentLibraryProps {
+  allModules: Module[];
+  onRequestNewPart?: () => void;
+}
 
 const ModuleCard = ({
   module,
@@ -118,18 +119,6 @@ const ModuleCard = ({
             </Badge>
           )}
         </div>
-        {/* Interfaces
-        <div className="flex flex-wrap items-center gap-1.5">
-          {module.interfaces.map((iface) => (
-            <Badge
-              key={iface}
-              variant="secondary"
-              className="bg-primary/5 text-primary/80 hover:bg-primary/10 text-xs font-mono px-2 py-0.5 transition-colors"
-            >
-              {iface}
-            </Badge>
-          ))}
-        </div> */}
         {/* Drag indicator */}
         {draggable && (
           <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -147,9 +136,8 @@ const ModuleCard = ({
 
 export default function ComponentLibrary({
   allModules,
-}: {
-  allModules: Module[];
-}) {
+  onRequestNewPart,
+}: ComponentLibraryProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const { modules: projectModules, panToModule } = usePlayground();
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
@@ -255,7 +243,11 @@ export default function ComponentLibrary({
               <div className="shrink-0 p-4 border-t bg-background/95 backdrop-blur-sm">
                 <Button
                   className="w-full h-10 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 font-medium"
-                  onClick={() => setIsRequestDialogOpen(true)}
+                  onClick={() => {
+                    // console.log("Request New Part button clicked");
+                    onRequestNewPart?.();
+                    setIsRequestDialogOpen(true);
+                  }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Request New Part
@@ -304,10 +296,10 @@ export default function ComponentLibrary({
           </div>
         </Tabs>
       </div>
-
       <RequestPartDialog
         open={isRequestDialogOpen}
         onOpenChange={setIsRequestDialogOpen}
+        onRefresh={handleRefreshModules}
       />
     </aside>
   );

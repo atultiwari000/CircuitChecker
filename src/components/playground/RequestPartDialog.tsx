@@ -14,7 +14,7 @@ import { Loader2, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "../ui/scroll-area";
 import { Card } from "../ui/card";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/server";
 
 interface PartSearchResult {
   id: string;
@@ -34,19 +34,29 @@ interface PartDetails extends PartSearchResult {
   // other details from supabase
 }
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Initialize Supabase client with error handling
+// let supabase: any = null;
+// try {
+//   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+//   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+//   if (supabaseUrl && supabaseAnonKey) {
+//     supabase = createClient(supabaseUrl, supabaseAnonKey);
+//   }
+// } catch (error) {
+//   console.warn("Supabase client initialization failed:", error);
+// }
 
 interface RequestPartDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onRefresh?: () => void;
 }
 
 export default function RequestPartDialog({
   open,
   onOpenChange,
+  onRefresh,
 }: RequestPartDialogProps) {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,7 +66,14 @@ export default function RequestPartDialog({
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Search Query Required",
+        description: "Please enter a search term.",
+      });
+      return;
+    }
 
     setIsLoading(true);
     setSearchResults([]);
@@ -64,7 +81,13 @@ export default function RequestPartDialog({
     console.log(`Searching for: ${searchQuery}`);
 
     try {
-      const response = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK2_URL!, {
+      // Check if webhook URL is configured
+      const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK2_URL;
+      if (!webhookUrl) {
+        throw new Error("Search service not configured");
+      }
+
+      const response = await fetch(webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: searchQuery.trim() }),
@@ -95,6 +118,10 @@ export default function RequestPartDialog({
   };
 
   const fetchResultsFromSupabase = async (sessionId: string) => {
+    if (!supabase) {
+      throw new Error("Database connection not available");
+    }
+
     try {
       console.log(`Fetching results from Supabase for session: ${sessionId}`);
 
@@ -116,7 +143,7 @@ export default function RequestPartDialog({
             item.id || item.part_number || `${sessionId}-${item.product_index}`,
           name: item.name || item.part_number || "Unknown Part",
           description: item.description || "No description available",
-          manufacturer: item.manufacturer,
+          manufacturer: item.manufacturer_name,
           part_number: item.part_number,
           product_index: item.product_index,
           session_id: item.session_id,
@@ -167,35 +194,76 @@ export default function RequestPartDialog({
         }),
       });
 
-      if (!webhookResponse.ok) {
-        throw new Error(`Webhook call failed: ${webhookResponse.status}`);
+      let webhookResult: any;
+      try {
+        webhookResult = await webhookResponse.json();
+      } catch {
+        webhookResult = { status: "error", message: "Invalid JSON response" };
       }
 
-      const webhookResult = await webhookResponse.json();
-      console.log("n8n webhook response:", webhookResult);
+      if (!webhookResponse.ok || webhookResult.status === "error") {
+        console.error("API error:", webhookResult);
+        toast({
+          variant: "destructive",
+          title: "Selection Failed",
+          description:
+            webhookResult.message || "Could not process the selected part.",
+        });
+        return;
+      }
 
-      // Prepare part details for immediate feedback
-      const partDetails: PartDetails = {
-        ...part,
-      };
+      // At this point, webhookResult.status could be "success"
+      if (webhookResult.status === "success") {
+        const componentId = webhookResult.id ?? `component-${Date.now()}`;
+        toast({
+          title: "Part Added",
+          description:
+            webhookResult.message || `Component added with id ${componentId}`,
+        });
 
-      console.log("Part details:", partDetails);
+        // Option A: Refresh the temp search results for the current session so UI updates
+        try {
+          if (part.session_id) {
+            await fetchResultsFromSupabase(part.session_id);
+            console.log("Refetched search results after webhook success");
+          }
+        } catch (err) {
+          console.warn("Refetching supabase results failed:", err);
+        }
 
+        // Option B: Also notify parent to refresh the main library immediately
+        // if (onRefresh) {
+        //   try {
+        //     onRefresh();
+        //   } catch (err) {
+        //     console.warn("onRefresh threw:", err);
+        //   }
+        // }
+
+        // Inform user processing started/completed
+        toast({
+          title: "Part Processing Started",
+          description: `${part.name}${
+            part.manufacturer ? ` by ${part.manufacturer}` : ""
+          } is being processed and will appear in the library soon.`,
+        });
+
+        // Close dialog and reset
+        handleDialogChange(false);
+        onOpenChange(false);
+        return;
+      }
+
+      // Fallback: if webhookResult had unexpected structure
       toast({
-        title: "Part Processing Started",
-        description: `${partDetails.name}${
-          partDetails.manufacturer ? ` by ${partDetails.manufacturer}` : ""
-        } is being processed and will appear in the library soon.`,
+        title: "Selection Response",
+        description:
+          webhookResult.message ||
+          "Received response from processing endpoint.",
       });
 
-      setTimeout(() => {
-        refreshUnverifiedComponents();
-      }, 2000);
-
+      handleDialogChange(false);
       onOpenChange(false);
-      setSearchQuery("");
-      setSearchResults([]);
-      setCurrentSessionId(null);
     } catch (error) {
       console.error("Failed to select part:", error);
       toast({
@@ -328,7 +396,4 @@ export default function RequestPartDialog({
       </DialogContent>
     </Dialog>
   );
-}
-function refreshUnverifiedComponents() {
-  throw new Error("Function not implemented.");
 }

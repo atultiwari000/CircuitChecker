@@ -1,24 +1,12 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createClient } from "@supabase/supabase-js";
 
-export function createClient() {
-  const cookieStore = cookies()
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        async get(name: string) {
-          return (await cookieStore).get(name)?.value
-        },
-        set(name: string, value: string, options: any) {
-          // no-op in Server Components (cookies are readonly)
-        },
-        remove(name: string, options: any) {
-          // no-op in Server Components
-        },
-      },
-    }
-  )
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error(
+    "Missing Supabase env. Provide SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY)."
+  );
 }
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);

@@ -1,8 +1,7 @@
 import type { Module } from '@/lib/types';
-import { createClient } from '@/lib/server';
+import { supabase } from '@/lib/server';
 
 export async function getLibraryModules(): Promise<Module[]> {
-  const supabase = createClient();
 
   const { data: circuitverseData, error: circuitverseError } = await supabase
     .from('circuitverse')
