@@ -21,18 +21,34 @@ export async function getLibraryModules(): Promise<Module[]> {
     console.error('Error fetching from unverified_components:', unverifiedError);
   }
 
+    const safeJSONParse = (jsonString: string | any, fallback: any = null) => {
+    if (typeof jsonString !== 'string') return jsonString || fallback;
+    try {
+      return JSON.parse(jsonString);
+    } catch (error) {
+      console.warn('Failed to parse JSON:', jsonString, error);
+      return fallback;
+    }
+  };
+
   const mapToModule = (item: any, status?: 'unreviewed'): Module => ({
-    id: item.part_number || item.id,
-    name: item.name,
-    description: item.description,
-    ports: typeof item.pins === 'string' ? JSON.parse(item.pins) : item.pins || [],
+    id: item.part_number || item.id || `module-${Math.random()}`,
+    name: item.name || 'Unknown Component',
+    description: item.description || '',
+    
+    // Parse JSON strings from Supabase
+    ports: safeJSONParse(item.ports || item.pins, []),
+    tags: safeJSONParse(item.tags, []),
+    documentation: safeJSONParse(item.documentation, {}),
+    operatingVoltage: safeJSONParse(item.operatingVoltage || item.operating_voltage, null),
+    
+    // Handle other fields
     imageUrl: item.imageUrl || item.image_url || undefined,
-    operatingVoltage: item.operating_voltage,
-    partNumber: '',
-    manufacturer: '',
-    external: false,
-    interfaces: [],
-    tags: [],
+    datasheetUrl: item.datasheetUrl || item.datasheet_url || undefined,
+    partNumber: item.part_number || item.partNumber || '',
+    manufacturer: item.manufacturer || '',
+    external: item.external || false,
+    interfaces: safeJSONParse(item.interfaces, []),
     status: status,
   });
 

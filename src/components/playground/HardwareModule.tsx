@@ -2,9 +2,18 @@
 
 import { useState, useRef, useEffect } from "react";
 import { usePlayground } from "@/hooks/usePlayground";
-import type { ModuleInstance, Port } from "@/lib/types";
+import type { ModuleInstance } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+
+// Updated Port interface to match your data structure
+interface Port {
+  id: string;
+  name: string;
+  type: string;
+  voltage: number | null;
+  position: string;
+}
 
 interface HardwareModuleProps {
   module: ModuleInstance;
@@ -24,11 +33,29 @@ const PortComponent = ({
     connectingPort?.instanceId === instanceId &&
     connectingPort?.portId === port.id;
 
+  // Get port color based on type
+  const getPortColor = (type: string) => {
+    switch (type) {
+      case "power_in":
+        return "border-red-500 hover:bg-red-500";
+      case "data_in":
+        return "border-blue-500 hover:bg-blue-500";
+      case "data_out":
+        return "border-green-500 hover:bg-green-500";
+      case "data_io":
+        return "border-yellow-500 hover:bg-yellow-500";
+      case "nc":
+        return "border-gray-400 hover:bg-gray-400 opacity-50";
+      default:
+        return "border-primary hover:bg-primary";
+    }
+  };
+
   return (
     <div
       className={cn(
         "group absolute",
-        side === "left" ? "-left-1.5" : "-right-1.5" // Adjusted for larger size
+        side === "left" ? "-left-1.5" : "-right-1.5"
       )}
       style={{ top: "50%", transform: "translateY(-50%)" }}
     >
@@ -38,10 +65,10 @@ const PortComponent = ({
           handlePortClick(instanceId, port.id);
         }}
         className={cn(
-          "h-3 w-3 rounded-full border-2 bg-background cursor-pointer hover:bg-primary transition-colors",
+          "h-3 w-3 rounded-full border-2 bg-background cursor-pointer transition-colors",
           isConnecting
             ? "bg-primary ring-2 ring-primary-foreground"
-            : "border-primary"
+            : getPortColor(port.type)
         )}
         title={`${port.name} (${port.type})`}
       />
@@ -50,8 +77,14 @@ const PortComponent = ({
 };
 
 export default function HardwareModule({ module }: HardwareModuleProps) {
-  const { updateModulePosition, setSelectedModule, isCutMode, removeModule } =
-    usePlayground();
+  const {
+    updateModulePosition,
+    setSelectedModule,
+    isCutMode,
+    removeModule,
+    handlePortClick,
+    connectingPort,
+  } = usePlayground();
   const [isDragging, setIsDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
 
@@ -111,8 +144,29 @@ export default function HardwareModule({ module }: HardwareModuleProps) {
     };
   }, [isDragging]);
 
-  const leftPorts = module.ports.filter((p) => p.position === "left");
-  const rightPorts = module.ports.filter((p) => p.position === "right");
+  // Ensure ports exist and have the correct structure
+  const ports = module.ports || [];
+  const leftPorts = ports.filter((p) => p.position === "left");
+  const rightPorts = ports.filter((p) => p.position === "right");
+
+  // Calculate port spacing for better visual distribution
+  const getPortStyle = (
+    index: number,
+    total: number,
+    side: "left" | "right"
+  ) => {
+    if (total === 1) {
+      return { top: "50%", transform: "translateY(-50%)" };
+    }
+
+    const spacing = 60 / (total + 1); // Distribute ports across 60px height
+    const topOffset = spacing * (index + 1);
+
+    return {
+      top: `${topOffset}px`,
+      transform: "none",
+    };
+  };
 
   return (
     <div
@@ -130,24 +184,91 @@ export default function HardwareModule({ module }: HardwareModuleProps) {
             : "cursor-grab"
         )}
       >
-        <p className="font-headline text-center text-sm">{module.name}</p>
-        {leftPorts.map((port) => (
-          <PortComponent
-            key={port.id}
-            port={port}
-            instanceId={module.instanceId}
-            side="left"
-          />
-        ))}
-        {rightPorts.map((port) => (
-          <PortComponent
-            key={port.id}
-            port={port}
-            instanceId={module.instanceId}
-            side="right"
-          />
-        ))}
+        <div className="text-center">
+          <p className="font-headline text-sm font-semibold">{module.name}</p>
+          {module.partNumber && (
+            <p className="text-xs text-muted-foreground font-mono">
+              {module.partNumber}
+            </p>
+          )}
+        </div>
+
+        {/* Left ports */}
+        {leftPorts.map((port, index) => {
+          const isConnecting =
+            connectingPort?.instanceId === module.instanceId &&
+            connectingPort?.portId === port.id;
+
+          return (
+            <div
+              key={port.id}
+              className="absolute -left-1.5"
+              style={getPortStyle(index, leftPorts.length, "left")}
+            >
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePortClick(module.instanceId, port.id);
+                }}
+                className={cn(
+                  "h-3 w-3 rounded-full border-2 bg-background cursor-pointer transition-colors",
+                  isConnecting
+                    ? "bg-primary ring-2 ring-primary-foreground"
+                    : getPortColor(port.type)
+                )}
+                title={`${port.name} (${port.type})`}
+              />
+            </div>
+          );
+        })}
+
+        {/* Right ports */}
+        {rightPorts.map((port, index) => {
+          const isConnecting =
+            connectingPort?.instanceId === module.instanceId &&
+            connectingPort?.portId === port.id;
+
+          return (
+            <div
+              key={port.id}
+              className="absolute -right-1.5"
+              style={getPortStyle(index, rightPorts.length, "right")}
+            >
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePortClick(module.instanceId, port.id);
+                }}
+                className={cn(
+                  "h-3 w-3 rounded-full border-2 bg-background cursor-pointer transition-colors",
+                  isConnecting
+                    ? "bg-primary ring-2 ring-primary-foreground"
+                    : getPortColor(port.type)
+                )}
+                title={`${port.name} (${port.type})`}
+              />
+            </div>
+          );
+        })}
       </Card>
     </div>
   );
+
+  // Helper function moved inside component to access connectingPort
+  function getPortColor(type: string) {
+    switch (type) {
+      case "power_in":
+        return "border-red-500 hover:bg-red-500";
+      case "data_in":
+        return "border-blue-500 hover:bg-blue-500";
+      case "data_out":
+        return "border-green-500 hover:bg-green-500";
+      case "data_io":
+        return "border-yellow-500 hover:bg-yellow-500";
+      case "nc":
+        return "border-gray-400 hover:bg-gray-400 opacity-50";
+      default:
+        return "border-primary hover:bg-primary";
+    }
+  }
 }

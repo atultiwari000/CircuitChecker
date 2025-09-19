@@ -103,12 +103,10 @@ const ModuleCard = ({
             </Badge>
           )}
         </div>
-
         {/* Description */}
         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
           {module.description}
         </p>
-
         {/* Part info */}
         <div className="flex items-center gap-2 text-xs">
           <Badge variant="outline" className="font-mono text-xs px-2 py-0.5">
@@ -120,8 +118,7 @@ const ModuleCard = ({
             </Badge>
           )}
         </div>
-
-        {/* Interfaces */}
+        {/* Interfaces
         <div className="flex flex-wrap items-center gap-1.5">
           {module.interfaces.map((iface) => (
             <Badge
@@ -132,8 +129,7 @@ const ModuleCard = ({
               {iface}
             </Badge>
           ))}
-        </div>
-
+        </div> */}
         {/* Drag indicator */}
         {draggable && (
           <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">

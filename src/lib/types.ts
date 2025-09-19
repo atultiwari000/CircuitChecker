@@ -14,18 +14,28 @@ export interface Point {
 }
 
 export interface Module {
-  id: string;
+    id: string;
   name: string;
   description: string;
+  ports: {
+    id: string;
+    name: string;
+    type: string;
+    voltage: number | null;
+    position: string;
+  }[];
+  imageUrl?: string;
+  datasheetUrl?: string;
+  documentation?: {
+    datasheetUrl?: string;
+    imageUrl?: string;
+  };
+  operatingVoltage?: string | number[];
   partNumber: string;
   manufacturer: string;
-  external: boolean;
-  interfaces: string[];
+  external?: boolean;
+  interfaces?: string[];
   tags: string[];
-  datasheet?: string;
-  imageUrl?: string;
-  operatingVoltage: [number, number]; // [min, max]
-  ports: Port[];
   status?: 'unreviewed';
   instanceId?: string; 
 }

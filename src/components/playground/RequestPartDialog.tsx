@@ -16,7 +16,6 @@ import { ScrollArea } from "../ui/scroll-area";
 import { Card } from "../ui/card";
 import { createClient } from "@supabase/supabase-js";
 
-// --- Types ---
 interface PartSearchResult {
   id: string;
   name: string;
@@ -39,7 +38,6 @@ interface PartDetails extends PartSearchResult {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
-const N8N_WEBHOOK_URL = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL!;
 
 interface RequestPartDialogProps {
   open: boolean;
