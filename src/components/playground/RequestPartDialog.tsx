@@ -25,10 +25,13 @@ interface PartSearchResult {
   part_number?: string;
   product_index: number;
   session_id: string;
+  datasheet?: string;
+  image_url?: string;
 }
 
 interface PartDetails extends PartSearchResult {
-  datasheetUrl?: string;
+  // datasheetUrl?: string;
+  // imageUrl?: string;
   // other details from supabase
 }
 
@@ -63,7 +66,7 @@ export default function RequestPartDialog({
     console.log(`Searching for: ${searchQuery}`);
 
     try {
-      const response = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL!, {
+      const response = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK2_URL!, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: searchQuery.trim() }),
@@ -119,6 +122,8 @@ export default function RequestPartDialog({
           part_number: item.part_number,
           product_index: item.product_index,
           session_id: item.session_id,
+          datasheet: item.datasheet_url,
+          image_url: item.image_url,
         })
       );
 
@@ -142,22 +147,54 @@ export default function RequestPartDialog({
     console.log(`Selected part:`, part);
 
     try {
+      const webhookResponse = await fetch("/api/process-part", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "process_part",
+          part_data: {
+            id: part.id,
+            name: part.name,
+            description: part.description,
+            manufacturer: part.manufacturer,
+            part_number: part.part_number,
+            product_index: part.product_index,
+            session_id: part.session_id,
+            datasheet_url: part.datasheet,
+            image_url: part.image_url,
+          },
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!webhookResponse.ok) {
+        throw new Error(`Webhook call failed: ${webhookResponse.status}`);
+      }
+
+      const webhookResult = await webhookResponse.json();
+      console.log("n8n webhook response:", webhookResult);
+
+      // Prepare part details for immediate feedback
       const partDetails: PartDetails = {
         ...part,
-        datasheetUrl: undefined,
       };
 
       console.log("Part details:", partDetails);
 
       toast({
-        title: "Part Selected",
-        description: `${partDetails.name} ${
-          partDetails.manufacturer ? `by ${partDetails.manufacturer}` : ""
-        } is ready.`,
+        title: "Part Processing Started",
+        description: `${partDetails.name}${
+          partDetails.manufacturer ? ` by ${partDetails.manufacturer}` : ""
+        } is being processed and will appear in the library soon.`,
       });
 
-      onOpenChange(false);
+      setTimeout(() => {
+        refreshUnverifiedComponents();
+      }, 2000);
 
+      onOpenChange(false);
       setSearchQuery("");
       setSearchResults([]);
       setCurrentSessionId(null);
@@ -166,7 +203,7 @@ export default function RequestPartDialog({
       toast({
         variant: "destructive",
         title: "Selection Failed",
-        description: "Could not process the selected part.",
+        description: "Could not process the selected part. Please try again.",
       });
     } finally {
       setIsFetchingDetails(false);
@@ -293,4 +330,7 @@ export default function RequestPartDialog({
       </DialogContent>
     </Dialog>
   );
+}
+function refreshUnverifiedComponents() {
+  throw new Error("Function not implemented.");
 }
