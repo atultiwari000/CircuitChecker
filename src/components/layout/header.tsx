@@ -1,37 +1,76 @@
-'use client';
+"use client";
 
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { CircuitBoard, Sparkles, RotateCcw, Scissors, Move, Sun, Moon } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useTheme } from 'next-themes';
+import {
+  Code2,
+  Moon,
+  Sun,
+  ShieldCheck,
+  Scissors,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+} from "lucide-react";
+import { Button } from "../ui/button";
+import { useTheme } from "next-themes";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
+import { usePlayground } from "@/hooks/usePlayground";
+import { cn } from "@/lib/utils";
 
-interface HeaderProps {
-  onValidate: () => void;
-  onReset: () => void;
-  hasValidationResults: boolean;
-  deleteMode: boolean;
-  onToggleDeleteMode: () => void;
-  moveMode: boolean;
-  onToggleMoveMode: () => void;
-}
-
-export default function Header({ onValidate, onReset, hasValidationResults, deleteMode, onToggleDeleteMode, moveMode, onToggleMoveMode }: HeaderProps) {
+export default function Header() {
   const { setTheme } = useTheme();
+  const { validateCircuit, transformControls, isCutMode, toggleCutMode } =
+    usePlayground();
 
   return (
-    <header className="flex items-center h-16 px-4 shrink-0 border-b bg-card">
+    <header className="flex h-12 shrink-0 items-center border-b px-4 md:px-6">
       <div className="flex items-center gap-2">
-        <CircuitBoard className="h-7 w-7 text-primary" />
-        <h1 className="text-xl font-bold tracking-tighter">CircuitCheck</h1>
+        <Code2 className="h-6 w-6 text-primary" />
+        <h1 className="font-headline text-lg font-bold tracking-tight text-primary">
+          CircuitVerse
+        </h1>
       </div>
       <div className="ml-auto flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => transformControls?.zoomIn?.()}
+        >
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => transformControls?.zoomOut?.()}
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => transformControls?.resetTransform?.()}
+        >
+          <RotateCcw className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" onClick={validateCircuit}>
+          <ShieldCheck className="h-4 w-4 mr-2" />
+          Validate
+        </Button>
+        <Button
+          variant="outline"
+          onClick={toggleCutMode}
+          className={cn(
+            isCutMode &&
+              "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          )}
+        >
+          <Scissors className="h-4 w-4 mr-2" />
+          Cut
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon">
@@ -52,38 +91,6 @@ export default function Header({ onValidate, onReset, hasValidationResults, dele
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <Button 
-          variant={moveMode ? "secondary" : "outline"} 
-          size="icon" 
-          onClick={onToggleMoveMode}
-          aria-pressed={moveMode}
-          className={cn(moveMode && "ring-2 ring-primary")}
-        >
-            <Move className="h-4 w-4" />
-            <span className="sr-only">Toggle Move Mode</span>
-        </Button>
-        <Button 
-          variant={deleteMode ? "secondary" : "outline"} 
-          size="icon" 
-          onClick={onToggleDeleteMode}
-          aria-pressed={deleteMode}
-          className={cn(deleteMode && "ring-2 ring-destructive")}
-        >
-            <Scissors className="h-4 w-4" />
-            <span className="sr-only">Toggle Delete Mode</span>
-        </Button>
-        <Separator orientation="vertical" className="h-8 mx-2" />
-        {hasValidationResults ? (
-          <Button variant="outline" onClick={onReset}>
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Reset
-          </Button>
-        ) : (
-          <Button onClick={onValidate}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            Validate Circuit
-          </Button>
-        )}
       </div>
     </header>
   );

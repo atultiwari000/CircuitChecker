@@ -1,40 +1,70 @@
-export type ComponentType = 'Resistor' | 'Capacitor' | 'IC';
+export type PortType = 'power_in' | 'power_out' | 'data_io' | 'gnd';
 
-export type CheckerType = 'Voltage' | 'Current' | 'Logic' | 'Timing' | 'Connectivity' | 'Custom';
-
-export interface Pin {
+export interface Port {
   id: string;
   name: string;
+  type: PortType;
+  voltage?: number;
+  position: 'left' | 'right' | 'top' | 'bottom';
+}
+
+export interface Point {
   x: number;
   y: number;
 }
 
-export interface CircuitComponent {
-  id:string;
-  type: ComponentType;
+export interface Module {
+    id: string;
   name: string;
-  position: { x: number; y: number };
-  properties: { [key: string]: string | number };
-  pins: Pin[];
-  dataset: { [key: string]: string | number };
+  description: string;
+  ports: {
+    id: string;
+    name: string;
+    type: string;
+    voltage: number | null;
+    position: string;
+  }[];
+  imageUrl?: string;
+  datasheetUrl?: string;
+  documentation?: {
+    datasheetUrl?: string;
+    imageUrl?: string;
+  };
+  operatingVoltage?: string | number[];
+  partNumber: string;
+  manufacturer: string;
+  external?: boolean;
+  interfaces?: string[];
+  tags: string[];
+  status?: 'unreviewed';
+  instanceId?: string; 
 }
+
+export interface ModuleInstance extends Module {
+  instanceId: string;
+  position: Point;
+}
+
+export type ConnectionMode = 'curved' | 'orthogonal';
 
 export interface Connection {
   id: string;
-  from: { componentId: string; pinId: string };
-  to: { componentId: string; pinId: string };
-  path: { x: number, y: number }[];
+  from: {
+    instanceId: string;
+    portId: string;
+  };
+  to: {
+    instanceId: string;
+    portId: string;
+  };
+  status: 'ok' | 'incompatible' | 'pending';
+  waypoints: Point[];
+  mode: ConnectionMode;
 }
 
-export type ValidationStatus = 'pass' | 'fail' | 'unchecked';
 
-export interface ValidationResult {
-  targetId: string; // component ID or connection ID
-  status: ValidationStatus;
-  message?: string;
-}
-
-export interface Circuit {
-    components: CircuitComponent[];
-    connections: Connection[];
+export interface ViewTransform {
+  x: number;
+  y: number;
+  scale: number;
 }
